@@ -2,6 +2,7 @@
 set -euo pipefail
 sample_name=${1}
 nproc=${2}
+rm_mapout=${3}
 index=mpa_vJan25_CHOCOPhlAnSGB_202503
 
 mkdir -p /output/tmp/mpa-4.2.4_mpa_vJan25_CHOCOPhlAnSGB_202503/tmp
@@ -27,4 +28,6 @@ metaphlan /output/tmp/mpa-4.2.4_mpa_vJan25_CHOCOPhlAnSGB_202503/${sample_name}/$
   --nproc 1 --offline
 sed -i 2d /output/tmp/mpa-4.2.4_mpa_vJan25_CHOCOPhlAnSGB_202503/${sample_name}/${sample_name}_unclassified.tsv
 
-rm /output/tmp/mpa-4.2.4_mpa_vJan25_CHOCOPhlAnSGB_202503/${sample_name}/${sample_name}.mapout.bz2
+if ${rm_mapout}; then
+  rm /output/tmp/mpa-4.2.4_mpa_vJan25_CHOCOPhlAnSGB_202503/${sample_name}/${sample_name}.mapout.bz2
+fi
