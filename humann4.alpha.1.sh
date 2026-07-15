@@ -7,6 +7,8 @@ mkdir -p /output/tmp/hnn-v4.0.0.alpha.1_mpa_vOct22_CHOCOPhlAnSGB_202403/tmp/${sa
 
 zcat /input/${sample_name}/*.fastq.gz > /output/tmp/hnn-v4.0.0.alpha.1_mpa_vOct22_CHOCOPhlAnSGB_202403/tmp/${sample_name}/${sample_name}.fastq
 
+humann_config --update database_folders utility_mapping /databases/utility_mapping
+
 humann --input /output/tmp/hnn-v4.0.0.alpha.1_mpa_vOct22_CHOCOPhlAnSGB_202403/tmp/${sample_name}/${sample_name}.fastq \
 	--output /output/tmp/hnn-v4.0.0.alpha.1_mpa_vOct22_CHOCOPhlAnSGB_202403/${sample_name} --input-format fastq \
 	--nucleotide-database /databases/chocophlan --protein-database /databases/uniref \
