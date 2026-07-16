@@ -10,17 +10,17 @@ mapper=${4}
 qc=${5}
 
 preprocessing.py \
-        -m ${mapper} \
-        -i /input/${sample_name}/ \
-        -s ${sample_name} \
-        -f R1 \
-        -r R2 \
-        -n ${nproc} \
-        -t ${nproc} \
+	-m ${mapper} \
+	-i /input/${sample_name}/ \
+	-s ${sample_name} \
+	-f R1 \
+	-r R2 \
+	-n ${nproc} \
+	-t ${nproc} \
 	${host} \
-        -d /databases/kraken2_databases \
+	-d /databases/kraken2_databases \
 	-x /databases/bowtie2_indexes \
-        -p \
+	-p \
 	-o /output/tmp/preprocessing/${sample_name} \
 	-q ${qc} \
-        --verbose &> /output/tmp/preprocessing/${sample_name}/${sample_name}_preproc.log
+	--verbose &> /output/tmp/preprocessing/${sample_name}/${sample_name}_preproc.log
