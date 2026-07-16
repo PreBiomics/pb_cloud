@@ -23,4 +23,4 @@ preprocessing.py \
 	-p \
 	-o /output/tmp/preprocessing/${sample_name} \
 	-q ${qc} \
-	--verbose &> /output/tmp/preprocessing/${sample_name}/${sample_name}_preproc.log
+	--verbose &> /output/tmp/preprocessing/${sample_name}/${sample_name}.log
