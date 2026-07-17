@@ -1,4 +1,4 @@
-#!/mnt/Prebiomics_Data/tools/anaconda3/envs/mpa4.1/bin/python
+#!/usr/bin/env python
 
 from Bio import SeqIO
 import numpy as np
