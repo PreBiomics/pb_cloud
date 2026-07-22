@@ -59,3 +59,39 @@ echo "[$(date)] Indexing BAM..."
 samtools index \
     -@ ${THREADS} \
     "${SORTED_BAM}"
+echo "[$(date)] Running GATK HaplotypeCaller..."
+
+gatk HaplotypeCaller \
+    -R "${REFERENCE}.fa" \
+    -I "${SORTED_BAM}" \
+    -O "${GVCF}" \
+    -ERC GVCF
+
+
+echo "[$(date)] Converting GVCF to VCF..."
+
+gatk GenotypeGVCFs \
+    -R "${REFERENCE}.fa" \
+    -V "${GVCF}" \
+    -O "${RAW_VCF}"
+
+
+echo "[$(date)] Filtering variants..."
+
+bcftools filter \
+    -i 'QUAL>=30 && DP>=10' \
+    "${RAW_VCF}" \
+    -Oz \
+    -o "${FILTERED_VCF}"
+
+echo "[$(date)] Indexing final VCF..."
+
+bcftools index \
+    "${FILTERED_VCF}"
+
+
+echo "===================================="
+echo "Pipeline finished"
+echo "Final VCF:"
+echo "${FILTERED_VCF}"
+echo "===================================="
