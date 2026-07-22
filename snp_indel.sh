@@ -82,7 +82,7 @@ echo "[$(date)] BaseRecalibrator"
 gatk BaseRecalibrator \
     -R "${REFERENCE}.fa" \
     -I "${SORTED_BAM}" \
-    --known-sites /databases/Homo_sapiens_assembly38.dbsnp138.vcf \
+    --known-sites /databases/Homo_sapiens_assembly38.dbsnp138.vcf.gz \
     --known-sites /databases/Homo_sapiens_assembly38.known_indels.vcf.gz \
     --known-sites /databases/Mills_and_1000G_gold_standard.indels.hg38.vcf.gz \
     -O "${OUTDIR}/${SAMPLE}.recal.table"
