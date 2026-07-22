@@ -2,18 +2,18 @@
 
 set -euo pipefail
 
-if [ "$#" -lt 6 ]; then
+if [ "$#" -lt 3 ]; then
     echo "Usage:"
-    echo "$0 <R1.fastq.gz> <R2.fastq.gz> <reference.fa> <sample_name> <output_dir> <threads>"
+    echo "$0 <sample_name> <reference.fa> <threads>"
     exit 1
 fi
 
-R1=$1
-R2=$2
-REFERENCE=$3
-SAMPLE=$4
-OUTDIR=$5
-THREADS=${6}
+SAMPLE=$1
+R1=/input/${SAMPLE}/${SAMPLE}_R1.fastq.gz
+R2=/input/${SAMPLE}/${SAMPLE}_R2.fastq.gz
+REFERENCE=/databases/$2
+OUTDIR=/output/tmp/wgs/${SAMPLE}
+THREADS=$3
 
 mkdir -p "${OUTDIR}"
 
@@ -59,41 +59,3 @@ echo "[$(date)] Indexing BAM..."
 samtools index \
     -@ ${THREADS} \
     "${SORTED_BAM}"
-
-
-echo "[$(date)] Running GATK HaplotypeCaller..."
-
-gatk HaplotypeCaller \
-    -R "${REFERENCE}" \
-    -I "${SORTED_BAM}" \
-    -O "${GVCF}" \
-    -ERC GVCF
-
-
-echo "[$(date)] Converting GVCF to VCF..."
-
-gatk GenotypeGVCFs \
-    -R "${REFERENCE}" \
-    -V "${GVCF}" \
-    -O "${RAW_VCF}"
-
-
-echo "[$(date)] Filtering variants..."
-
-bcftools filter \
-    -i 'QUAL>=30 && DP>=10' \
-    "${RAW_VCF}" \
-    -Oz \
-    -o "${FILTERED_VCF}"
-
-echo "[$(date)] Indexing final VCF..."
-
-bcftools index \
-    "${FILTERED_VCF}"
-
-
-echo "===================================="
-echo "Pipeline finished"
-echo "Final VCF:"
-echo "${FILTERED_VCF}"
-echo "===================================="
