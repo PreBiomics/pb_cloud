@@ -4,7 +4,7 @@ set -euo pipefail
 
 if [ "$#" -lt 3 ]; then
     echo "Usage:"
-    echo "$0 <sample_name> <reference.fa> <threads>"
+    echo "$0 <sample_name> <reference_name> <threads>"
     exit 1
 fi
 
