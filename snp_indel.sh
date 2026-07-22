@@ -57,7 +57,6 @@ echo "[$(date)] Indexing BAM..."
 samtools index \
     -@ ${THREADS} \
     "${SORTED_BAM}"
-echo "[$(date)] Running GATK HaplotypeCaller..."
 
 echo "[$(date)] Collecting QC metrics"
 
