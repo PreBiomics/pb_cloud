@@ -96,6 +96,9 @@ gatk ApplyBQSR \
 
 samtools index "${OUTDIR}/${SAMPLE}.recal.bam"
 
+rm "${SORTED_BAM}"
+rm "${SORTED_BAM}.bai"
+
 echo "[$(date)] HaplotypeCaller"
 
 gatk HaplotypeCaller \
@@ -118,6 +121,13 @@ gatk SelectVariants \
         -V ${OUTDIR}/${SAMPLE}.vcf.gz \
         --select-type-to-include INDEL \
         -O "${OUTDIR}/${SAMPLE}.INDEL.vcf.gz"
+
+rm "${OUTDIR}/${SAMPLE}.recal.table"
+rm "${OUTDIR}/${SAMPLE}.recal.bam.bai"
+rm "${OUTDIR}/${SAMPLE}.recal.bai"
+rm "${OUTDIR}/${SAMPLE}.SNP.vcf.gz.tbi"
+rm "${OUTDIR}/${SAMPLE}.INDEL.vcf.gz.tbi"
+rm "${OUTDIR}/${SAMPLE}.vcf.gz.tbi"
 
 echo ""
 echo "Pipeline completed successfully."
