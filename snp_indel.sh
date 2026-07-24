@@ -31,15 +31,8 @@ bwa-mem2 mem \
     -R "@RG\tID:${SAMPLE}\tSM:${SAMPLE}\tPL:ILLUMINA" \
     "${REFERENCE}" \
     "${R1}" \
-    "${R2}" \
-    > "${SAM}"
-
-echo "[$(date)] Converting SAM to BAM..."
-
-samtools view \
-    -@ ${THREADS} \
-    -bS "${SAM}" \
-    -o "${BAM}"
+    "${R2}" | samtools view \
+    -bS -o "${BAM}"
 
 rm "${SAM}"
 
