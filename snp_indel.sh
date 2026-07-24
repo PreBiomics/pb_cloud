@@ -31,7 +31,9 @@ bwa-mem2 mem \
     "${REFERENCE}" \
     "${R1}" \
     "${R2}" | samtools view \
-    -bS -o "${BAM}"
+    -@ "${THREADS}" \
+    -b \
+    -o "${BAM}" -
 
 echo "[$(date)] Sorting BAM..."
 
