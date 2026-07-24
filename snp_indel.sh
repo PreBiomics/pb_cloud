@@ -19,7 +19,6 @@ THREADS=$3
 mkdir -p "${OUTDIR}"
 mkdir -p "${QC}"
 
-SAM="${OUTDIR}/${SAMPLE}.sam"
 BAM="${OUTDIR}/${SAMPLE}.bam"
 SORTED_BAM="${OUTDIR}/${SAMPLE}.sorted.bam"
 
@@ -33,8 +32,6 @@ bwa-mem2 mem \
     "${R1}" \
     "${R2}" | samtools view \
     -bS -o "${BAM}"
-
-rm "${SAM}"
 
 echo "[$(date)] Sorting BAM..."
 
