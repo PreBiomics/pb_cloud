@@ -159,7 +159,7 @@ mkdir -p "${GVCF_DIR}"
 parallel \
     -j ${THREADS} \
     --halt soon,fail=1 \
-    ./hc_worker.sh \
+    hc_worker.sh \
         "${REFERENCE}" \
         "${RECAL_BAM}" \
         {} \
