@@ -17,7 +17,6 @@ QC="${OUTDIR}/QC"
 THREADS=$3
 SCATTER_COUNT=64
 
-mkdir -p "${OUTDIR}"
 mkdir -p "${QC}"
 
 BAM="${OUTDIR}/${SAMPLE}.bam"
