@@ -2,6 +2,8 @@
 
 set -euo pipefail
 
+export PATH=/output/pb_cloud/wgs:$PATH
+
 if [ "$#" -lt 3 ]; then
     echo "Usage:"
     echo "$0 <sample_name> <reference_name> <threads>"
