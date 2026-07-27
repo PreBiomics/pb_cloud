@@ -54,20 +54,20 @@ samtools index \
 echo "[$(date)] Collecting QC metrics"
 
 # Alignment statistics
-samtools flagstat "${SORTED_BAM}" \
-    > "${QC}/${SAMPLE}.flagstat.txt"
+# samtools flagstat "${SORTED_BAM}" \
+#     > "${QC}/${SAMPLE}.flagstat.txt"
 
-samtools stats "${SORTED_BAM}" \
-    > "${QC}/${SAMPLE}.stats.txt"
+# samtools stats "${SORTED_BAM}" \
+#     > "${QC}/${SAMPLE}.stats.txt"
 
 # Coverage statistics
-samtools coverage "${SORTED_BAM}" \
-    > "${QC}/${SAMPLE}.coverage.txt"
+# samtools coverage "${SORTED_BAM}" \
+#     > "${QC}/${SAMPLE}.coverage.txt"
 
 # Mean depth
-samtools depth -a "${SORTED_BAM}" \
-    | awk '{sum+=$3;cnt++} END {print sum/cnt}' \
-    > "${QC}/${SAMPLE}.mean_depth.txt"
+# samtools depth -a "${SORTED_BAM}" \
+#     | awk '{sum+=$3;cnt++} END {print sum/cnt}' \
+#     > "${QC}/${SAMPLE}.mean_depth.txt"
 
 echo "[$(date)] BaseRecalibrator"
 
@@ -94,62 +94,102 @@ rm "${SORTED_BAM}.bai"
 
 echo "[$(date)] HaplotypeCaller"
 
-##############################################################################
-# HaplotypeCaller (parallelized)
-###############################################################################
+################################################################################
+# Interval generation (only once per reference)
+################################################################################
 
+echo
 echo "[$(date)] Preparing intervals"
 
-INTERVAL_DIR="${OUTDIR}/${2}_intervals_${SCATTER_COUNT}"
+INTERVAL_FILE="${OUTDIR}/${2}.32.intervals"
 
-if [ ! -d "${INTERVAL_DIR}" ]; then
-    mkdir -p "${INTERVAL_DIR}"
+if [[ ! -f "${INTERVAL_FILE}" ]]; then
 
-    gatk SplitIntervals \
-        -R "${REFERENCE}.fa" \
-        -L "${REFERENCE}.fa" \
-        --scatter-count ${SCATTER_COUNT} \
-        -O "${INTERVAL_DIR}"
+    echo "Generating interval file..."
+
+    awk '
+    BEGIN{
+        TARGET=100000000
+    }
+
+    {
+        chr=$1
+        len=$2
+
+        start=1
+
+        while(start<=len){
+
+            end=start+TARGET-1
+
+            if(end>len)
+                end=len
+
+            print chr":"start"-"end
+
+            start=end+1
+        }
+    }
+    ' "${REFERENCE}.fa.fai" > "${INTERVAL_FILE}"
+
 fi
 
+################################################################################
+# Parallel HaplotypeCaller
+################################################################################
+
+echo
+echo "[$(date)] HaplotypeCaller"
+
 GVCF_DIR="${OUTDIR}/gvcf_parts"
+
 mkdir -p "${GVCF_DIR}"
 
-echo "[$(date)] Running HaplotypeCaller on ${SCATTER_COUNT} intervals"
+export REFERENCE
+export RECAL_BAM
+export GVCF_DIR
 
-find "${INTERVAL_DIR}" -name "*.interval_list" | sort | \
-parallel -j ${THREADS} \
+cat "${INTERVAL_FILE}" | parallel \
+    -j "${THREADS}" \
+    --halt soon,fail=1 \
 '
 INTERVAL={}
-NAME=$(basename ${INTERVAL} .interval_list)
+
+NAME=$(echo ${INTERVAL} | sed "s/:/_/;s/-/_/")
 
 gatk HaplotypeCaller \
-    -R '"${REFERENCE}.fa"' \
-    -I '"${OUTDIR}/${SAMPLE}.recal.bam"' \
+    -R ${REFERENCE}.fa \
+    -I ${RECAL_BAM} \
     -L ${INTERVAL} \
     -ERC GVCF \
     --native-pair-hmm-threads 1 \
-    -O '"${GVCF_DIR}"'/${NAME}.g.vcf.gz
+    -O ${GVCF_DIR}/${NAME}.g.vcf.gz
 '
 
-echo "[$(date)] Gathering GVCFs"
+################################################################################
+# Gather GVCFs
+################################################################################
+
+echo
+echo "[$(date)] GatherVcfs"
 
 INPUTS=()
 
-while IFS= read -r file
+while IFS= read -r FILE
 do
-    INPUTS+=("-I" "$file")
+    INPUTS+=("-I")
+    INPUTS+=("${FILE}")
 done < <(find "${GVCF_DIR}" -name "*.g.vcf.gz" | sort)
 
 gatk GatherVcfs \
     "${INPUTS[@]}" \
     -O "${OUTDIR}/${SAMPLE}.vcf.gz"
 
-rm -rf "${GVCF_DIR}"
+################################################################################
+# Cleanup temporary GVCFs
+################################################################################
 
-###############################################################################
-# Variant selection
-###############################################################################
+rm -rf "${GVCF_DIR}"
 
 echo "[$(date)] Select SNP and INDELs"
 
@@ -171,7 +211,7 @@ rm "${OUTDIR}/${SAMPLE}.recal.bai"
 rm "${OUTDIR}/${SAMPLE}.SNP.vcf.gz.tbi"
 rm "${OUTDIR}/${SAMPLE}.INDEL.vcf.gz.tbi"
 rm "${OUTDIR}/${SAMPLE}.vcf.gz.tbi"
-rm -rf "$INTERVAL_DIR"
+rm "$INTERVAL_FILE"
 
 echo ""
 echo "Pipeline completed successfully."
