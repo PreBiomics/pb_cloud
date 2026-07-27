@@ -103,51 +103,44 @@ mkdir -p "${SHARD_DIR}"
 if [[ ! -f "${SHARD_DIR}/shard_31.list" ]]; then
     rm -f "${SHARD_DIR}"/*.list
     TOTAL=$(awk '
-        $1 ~ /^chr([1-9]|1[0-9]|2[0-2]|X|Y)$/ {
-            sum += $2
-        }
-        END{
-            print sum
-        }
+    {
+        sum += $2
+    }
+    END{
+        printf "%.0f\n", sum
+    }
     ' "${REFERENCE}.fa.fai")
     TARGET=$((TOTAL / SHARDS))
     SHARD=0
     CURRENT=0
-    while read CHR LEN REST
+    while read -r CHR LEN REST
     do
-		if ! [[ "$CHR" =~ ^chr([1-9]|1[0-9]|2[0-2]|X|Y)$ ]]
-        then
-            echo "$CHR" >> "${SHARD_DIR}/shard_31.list"
-            continue
-        fi
         START=1
         while (( START <= LEN ))
         do
-            REMAIN=$((TARGET-CURRENT))
-            LEFT=$((LEN-START+1))
-            if (( SHARD == SHARDS-1 ))
-            then
+            REMAIN=$((TARGET - CURRENT))
+            LEFT=$((LEN - START + 1))
+            # Last shard gets everything that's left
+            if (( SHARD == SHARDS - 1 )); then
                 echo "${CHR}:${START}-${LEN}" \
-                    >> "${SHARD_DIR}/shard_$(printf "%02d" $SHARD).list"
+                    >> "${SHARD_DIR}/shard_$(printf "%02d" "${SHARD}").list"
                 break
             fi
-            if (( LEFT <= REMAIN ))
-            then
+            if (( LEFT <= REMAIN )); then
                 echo "${CHR}:${START}-${LEN}" \
-                    >> "${SHARD_DIR}/shard_$(printf "%02d" $SHARD).list"
-                CURRENT=$((CURRENT+LEFT))
-                START=$((LEN+1))
+                    >> "${SHARD_DIR}/shard_$(printf "%02d" "${SHARD}").list"
+                CURRENT=$((CURRENT + LEFT))
+                START=$((LEN + 1))
             else
-                END=$((START+REMAIN-1))
+                END=$((START + REMAIN - 1))
                 echo "${CHR}:${START}-${END}" \
-                    >> "${SHARD_DIR}/shard_$(printf "%02d" $SHARD).list"
-                START=$((END+1))
-                SHARD=$((SHARD+1))
+                    >> "${SHARD_DIR}/shard_$(printf "%02d" "${SHARD}").list"
+                START=$((END + 1))
+                SHARD=$((SHARD + 1))
                 CURRENT=0
             fi
         done
     done < "${REFERENCE}.fa.fai"
-
 fi
 
 echo
