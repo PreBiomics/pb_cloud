@@ -22,7 +22,7 @@ mkdir -p "${QC}"
 
 BAM="${OUTDIR}/${SAMPLE}.bam"
 SORTED_BAM="${OUTDIR}/${SAMPLE}.sorted.bam"
-RECALL_BAM="${OUTDIR}/${SAMPLE}.recal.bam"
+RECAL_BAM="${OUTDIR}/${SAMPLE}.recal.bam"
 
 echo "[$(date)] Running BWA-MEM2..."
 
