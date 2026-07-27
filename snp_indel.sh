@@ -15,6 +15,7 @@ REFERENCE=/databases/$2
 OUTDIR=/output/tmp/wgs/${SAMPLE}
 QC="${OUTDIR}/QC"
 THREADS=$3
+SCATTER_COUNT=64
 
 mkdir -p "${OUTDIR}"
 mkdir -p "${QC}"
@@ -93,12 +94,62 @@ rm "${SORTED_BAM}.bai"
 
 echo "[$(date)] HaplotypeCaller"
 
+##############################################################################
+# HaplotypeCaller (parallelized)
+###############################################################################
+
+echo "[$(date)] Preparing intervals"
+
+INTERVAL_DIR="${OUTDIR}/${2}_intervals_${SCATTER_COUNT}"
+
+if [ ! -d "${INTERVAL_DIR}" ]; then
+    mkdir -p "${INTERVAL_DIR}"
+
+    gatk SplitIntervals \
+        -R "${REFERENCE}.fa" \
+        -L "${REFERENCE}.fa" \
+        --scatter-count ${SCATTER_COUNT} \
+        -O "${INTERVAL_DIR}"
+fi
+
+GVCF_DIR="${OUTDIR}/gvcf_parts"
+mkdir -p "${GVCF_DIR}"
+
+echo "[$(date)] Running HaplotypeCaller on ${SCATTER_COUNT} intervals"
+
+find "${INTERVAL_DIR}" -name "*.interval_list" | sort | \
+parallel -j ${THREADS} \
+'
+INTERVAL={}
+NAME=$(basename ${INTERVAL} .interval_list)
+
 gatk HaplotypeCaller \
-    -R "${REFERENCE}.fa" \
-    -I "${OUTDIR}/${SAMPLE}.recal.bam" \
+    -R '"${REFERENCE}.fa"' \
+    -I '"${OUTDIR}/${SAMPLE}.recal.bam"' \
+    -L ${INTERVAL} \
     -ERC GVCF \
-    --native-pair-hmm-threads ${THREADS} \
+    --native-pair-hmm-threads 1 \
+    -O '"${GVCF_DIR}"'/${NAME}.g.vcf.gz
+'
+
+echo "[$(date)] Gathering GVCFs"
+
+INPUTS=()
+
+while IFS= read -r file
+do
+    INPUTS+=("-I" "$file")
+done < <(find "${GVCF_DIR}" -name "*.g.vcf.gz" | sort)
+
+gatk GatherVcfs \
+    "${INPUTS[@]}" \
     -O "${OUTDIR}/${SAMPLE}.vcf.gz"
+
+rm -rf "${GVCF_DIR}"
+
+###############################################################################
+# Variant selection
+###############################################################################
 
 echo "[$(date)] Select SNP and INDELs"
 
@@ -120,6 +171,7 @@ rm "${OUTDIR}/${SAMPLE}.recal.bai"
 rm "${OUTDIR}/${SAMPLE}.SNP.vcf.gz.tbi"
 rm "${OUTDIR}/${SAMPLE}.INDEL.vcf.gz.tbi"
 rm "${OUTDIR}/${SAMPLE}.vcf.gz.tbi"
+rm -rf "${OUTDIR}/${2}_intervals_*"
 
 echo ""
 echo "Pipeline completed successfully."
