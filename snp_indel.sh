@@ -53,21 +53,55 @@ samtools index \
 
 echo "[$(date)] Collecting QC metrics"
 
-# Alignment statistics
-samtools flagstat "${SORTED_BAM}" \
-    > "${QC}/${SAMPLE}.flagstat.txt"
+FLAGSTAT_THREADS=1
+MOSDEPTH_THREADS=$(( THREADS - FLAGSTAT_THREADS ))
+(( MOSDEPTH_THREADS < 1 )) && MOSDEPTH_THREADS=1
 
-samtools stats "${SORTED_BAM}" \
-    > "${QC}/${SAMPLE}.stats.txt"
+samtools flagstat \
+    -@ "${FLAGSTAT_THREADS}" \
+    "${SORTED_BAM}" \
+    > "${QC}/${SAMPLE}.flagstat.txt" &
 
-# Coverage statistics
-samtools coverage "${SORTED_BAM}" \
-    > "${QC}/${SAMPLE}.coverage.txt"
+mosdepth \
+    --threads "${MOSDEPTH_THREADS}" \
+    --no-per-base \
+    "${QC}/${SAMPLE}" \
+    "${SORTED_BAM}" &
 
-# Mean depth
-samtools depth -a "${SORTED_BAM}" \
-   | awk '{sum+=$3;cnt++} END {print sum/cnt}' \
-    > "${QC}/${SAMPLE}.mean_depth.txt"
+wait
+
+grep "mapped (" "${QC}/${SAMPLE}.flagstat.txt" \
+| sed -E 's/.*\(([0-9.]+)%.*/\1/' \
+> "${QC}/${SAMPLE}.mapping_rate.txt"
+
+awk '
+$1=="total"{
+    printf("%.2f\n",$4)
+}
+' "${QC}/${SAMPLE}.mosdepth.summary.txt" \
+> "${QC}/${SAMPLE}.mean_depth.txt"
+
+cp \
+"${QC}/${SAMPLE}.mean_depth.txt" \
+"${QC}/${SAMPLE}.sequencing_depth.txt"
+MEAN=$(cat "${QC}/${SAMPLE}.mean_depth.txt")
+awk -v mean="${MEAN}" '
+BEGIN{
+    threshold = 0.2 * mean
+}
+$1 >= threshold{
+    pct = $2
+}
+END{
+    printf("%.2f\n", pct * 100)
+}
+' "${QC}/${SAMPLE}.mosdepth.global.dist.txt" \
+> "${QC}/${SAMPLE}.coverage_uniformity.txt"
+
+rm -f "${QC}/${SAMPLE}.mosdepth.global.dist.txt"
+rm -f "${QC}/${SAMPLE}.mosdepth.region.dist.txt"
+rm -f "${QC}/${SAMPLE}.regions.bed.gz"
+rm -f "${QC}/${SAMPLE}.regions.bed.gz.csi"
 
 echo "[$(date)] BaseRecalibrator"
 
@@ -192,6 +226,14 @@ gatk SelectVariants \
         -V ${OUTDIR}/${SAMPLE}.vcf.gz \
         --select-type-to-include INDEL \
         -O "${OUTDIR}/${SAMPLE}.INDEL.vcf.gz"
+
+bcftools index -n \
+    "${OUTDIR}/${SAMPLE}.SNP.vcf.gz" \
+    > "${QC}/${SAMPLE}.num_snps.txt"
+
+bcftools index -n \
+    "${OUTDIR}/${SAMPLE}.INDEL.vcf.gz" \
+    > "${QC}/${SAMPLE}.num_indels.txt"
 
 rm "${OUTDIR}/${SAMPLE}.recal.table"
 rm "${OUTDIR}/${SAMPLE}.recal.bam.bai"
