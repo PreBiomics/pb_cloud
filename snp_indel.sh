@@ -100,26 +100,28 @@ echo "[$(date)] HaplotypeCaller"
 echo
 echo "[$(date)] Preparing intervals"
 
-INTERVAL_FILE="${OUTDIR}/${2}.32.intervals"
-if [[ ! -f "${INTERVAL_FILE}" ]]; then
-    echo "Generating interval file..."
-    awk '
-    BEGIN{
-        TARGET=100000000
-    }
-    {
-        chr=$1
-        len=$2
-        start=1
-        while(start<=len){
-            end=start+TARGET-1
-            if(end>len)
-                end=len
-            print chr":"start"-"end
-            start=end+1
-        }
-    }
-    ' "${REFERENCE}.fa.fai" > "${INTERVAL_FILE}"
+INTERVAL_DIR="${OUTDIR}/${REFERENCE_NAME}_intervals"
+
+if [[ ! -d "${INTERVAL_DIR}" ]]; then
+    mkdir -p "${INTERVAL_DIR}"
+    TARGET=100000000
+    COUNT=0
+    while read -r CHR LEN _; do
+        START=1
+        while (( START <= LEN )); do
+            END=$((START + TARGET - 1))
+            if (( END > LEN )); then
+                END=$LEN
+            fi
+            printf "%s:%d-%d\n" \
+                "$CHR" \
+                "$START" \
+                "$END" \
+                > "${INTERVAL_DIR}/$(printf "%03d" ${COUNT}).interval_list"
+            COUNT=$((COUNT + 1))
+            START=$((END + 1))
+        done
+    done < "${REFERENCE}.fa.fai"
 fi
 
 ################################################################################
@@ -127,55 +129,50 @@ fi
 ################################################################################
 
 echo
-echo "[$(date)] HaplotypeCaller"
-
+echo "[$(date)] Running HaplotypeCaller"
 GVCF_DIR="${OUTDIR}/gvcf_parts"
-
 mkdir -p "${GVCF_DIR}"
 
 export REFERENCE
 export RECAL_BAM
 export GVCF_DIR
 
-cat "${INTERVAL_FILE}" | parallel \
-    -j "${THREADS}" \
+parallel \
+    --jobs "${THREADS}" \
     --halt soon,fail=1 \
 '
-INTERVAL={}
-NAME=$(echo ${INTERVAL} | sed "s/:/_/;s/-/_/")
+FILE={}
+NAME=$(basename "${FILE}" .interval_list)
+
 gatk HaplotypeCaller \
-    -R ${REFERENCE}.fa \
-    -I ${RECAL_BAM} \
-    -L ${INTERVAL} \
+    -R '"${REFERENCE}.fa"' \
+    -I '"${RECAL_BAM}"' \
+    -L "${FILE}" \
     -ERC GVCF \
     --native-pair-hmm-threads 1 \
-    -O ${GVCF_DIR}/${NAME}.g.vcf.gz
-'
+    -O '"${GVCF_DIR}"'/"${NAME}".g.vcf.gz
+' ::: "${INTERVAL_DIR}"/*.interval_list
 
 ################################################################################
 # Gather GVCFs
 ################################################################################
 
 echo
-echo "[$(date)] GatherVcfs"
+echo "[$(date)] Gathering GVCFs"
 
 INPUTS=()
-
-while IFS= read -r FILE
+for FILE in "${GVCF_DIR}"/*.g.vcf.gz
 do
     INPUTS+=("-I")
     INPUTS+=("${FILE}")
-done < <(find "${GVCF_DIR}" -name "*.g.vcf.gz" | sort)
+done
 
 gatk GatherVcfs \
     "${INPUTS[@]}" \
     -O "${OUTDIR}/${SAMPLE}.vcf.gz"
 
-################################################################################
-# Cleanup temporary GVCFs
-################################################################################
-
 rm -rf "${GVCF_DIR}"
+
 
 echo "[$(date)] Select SNP and INDELs"
 
