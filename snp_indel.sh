@@ -171,7 +171,7 @@ rm "${OUTDIR}/${SAMPLE}.recal.bai"
 rm "${OUTDIR}/${SAMPLE}.SNP.vcf.gz.tbi"
 rm "${OUTDIR}/${SAMPLE}.INDEL.vcf.gz.tbi"
 rm "${OUTDIR}/${SAMPLE}.vcf.gz.tbi"
-rm -rf "${OUTDIR}/${2}_intervals_*"
+rm -rf "$INTERVAL_DIR"
 
 echo ""
 echo "Pipeline completed successfully."
