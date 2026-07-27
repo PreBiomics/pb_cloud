@@ -100,7 +100,7 @@ echo "[$(date)] HaplotypeCaller"
 echo
 echo "[$(date)] Preparing intervals"
 
-INTERVAL_DIR="${OUTDIR}/${REFERENCE_NAME}_intervals"
+INTERVAL_DIR="${OUTDIR}/${2}_intervals"
 
 if [[ ! -d "${INTERVAL_DIR}" ]]; then
     mkdir -p "${INTERVAL_DIR}"
