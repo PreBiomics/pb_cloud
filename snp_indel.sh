@@ -17,7 +17,7 @@ REFERENCE=/databases/$2
 OUTDIR=/output/tmp/wgs/${SAMPLE}
 QC="${OUTDIR}/QC"
 THREADS=$3
-SHARDS=32
+SHARDS=$((THREADS * 2))
 
 mkdir -p "${QC}"
 
