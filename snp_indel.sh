@@ -184,6 +184,9 @@ gatk GatherVcfs \
 
 rm -rf "${GVCF_DIR}"
 
+gatk IndexFeatureFile \
+    -I "${OUTDIR}/${SAMPLE}.vcf.gz"
+
 echo "[$(date)] Select SNP and INDELs"
 
 gatk SelectVariants \
