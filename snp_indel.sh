@@ -15,7 +15,6 @@ REFERENCE=/databases/$2
 OUTDIR=/output/tmp/wgs/${SAMPLE}
 QC="${OUTDIR}/QC"
 THREADS=$3
-SCATTER_COUNT=64
 
 mkdir -p "${QC}"
 
@@ -53,20 +52,20 @@ samtools index \
 echo "[$(date)] Collecting QC metrics"
 
 # Alignment statistics
-# samtools flagstat "${SORTED_BAM}" \
-#     > "${QC}/${SAMPLE}.flagstat.txt"
+samtools flagstat "${SORTED_BAM}" \
+    > "${QC}/${SAMPLE}.flagstat.txt"
 
-# samtools stats "${SORTED_BAM}" \
-#     > "${QC}/${SAMPLE}.stats.txt"
+samtools stats "${SORTED_BAM}" \
+    > "${QC}/${SAMPLE}.stats.txt"
 
 # Coverage statistics
-# samtools coverage "${SORTED_BAM}" \
-#     > "${QC}/${SAMPLE}.coverage.txt"
+samtools coverage "${SORTED_BAM}" \
+    > "${QC}/${SAMPLE}.coverage.txt"
 
 # Mean depth
-# samtools depth -a "${SORTED_BAM}" \
-#     | awk '{sum+=$3;cnt++} END {print sum/cnt}' \
-#     > "${QC}/${SAMPLE}.mean_depth.txt"
+samtools depth -a "${SORTED_BAM}" \
+   | awk '{sum+=$3;cnt++} END {print sum/cnt}' \
+    > "${QC}/${SAMPLE}.mean_depth.txt"
 
 echo "[$(date)] BaseRecalibrator"
 
@@ -92,40 +91,27 @@ rm "${SORTED_BAM}.bai"
 
 echo "[$(date)] HaplotypeCaller"
 
-################################################################################
-# Interval generation (only once per reference)
-################################################################################
-
 echo
 echo "[$(date)] Preparing intervals"
 
-INTERVAL_DIR="${OUTDIR}/${2}_intervals"
-
-if [[ ! -d "${INTERVAL_DIR}" ]]; then
-    mkdir -p "${INTERVAL_DIR}"
+INTERVAL_FILE="/output/${2}.intervals"
+if [[ ! -f "${INTERVAL_FILE}" ]]; then
     TARGET=100000000
-    COUNT=0
-    while read -r CHR LEN _; do
-        START=1
-        while (( START <= LEN )); do
-            END=$((START + TARGET - 1))
-            if (( END > LEN )); then
-                END=$LEN
-            fi
-            printf "%s:%d-%d\n" \
-                "$CHR" \
-                "$START" \
-                "$END" \
-                > "${INTERVAL_DIR}/$(printf "%03d" ${COUNT}).interval_list"
-            COUNT=$((COUNT + 1))
-            START=$((END + 1))
-        done
-    done < "${REFERENCE}.fa.fai"
+    awk -v TARGET="${TARGET}" '
+    {
+        chr=$1
+        len=$2
+        start=1
+        while(start<=len){
+            end=start+TARGET-1
+            if(end>len)
+                end=len
+            print chr":"start"-"end
+            start=end+1
+        }
+    }
+    ' "${REFERENCE}.fa.fai" > "${INTERVAL_FILE}"
 fi
-
-################################################################################
-# Parallel HaplotypeCaller
-################################################################################
 
 echo
 echo "[$(date)] Running HaplotypeCaller"
@@ -136,25 +122,17 @@ export REFERENCE
 export RECAL_BAM
 export GVCF_DIR
 
-parallel \
-    --jobs "${THREADS}" \
-    --halt soon,fail=1 \
-'
-FILE={}
-NAME=$(basename "${FILE}" .interval_list)
-
+parallel --jobs "${THREADS}" --halt soon,fail=1 \
 gatk HaplotypeCaller \
-    -R '"${REFERENCE}.fa"' \
-    -I '"${RECAL_BAM}"' \
-    -L "${FILE}" \
-    -ERC GVCF \
-    --native-pair-hmm-threads 1 \
-    -O '"${GVCF_DIR}"'/"${NAME}".g.vcf.gz
-' ::: "${INTERVAL_DIR}"/*.interval_list
+-R "${REFERENCE}.fa" \
+-I "${RECAL_BAM}" \
+-L {} \
+-ERC GVCF \
+--native-pair-hmm-threads 1 \
+-O "${GVCF_DIR}"/{#}.g.vcf.gz \
+:::: "${INTERVAL_FILE}"
 
-################################################################################
-# Gather GVCFs
-################################################################################
+rm "$INTERVAL_FILE"
 
 echo
 echo "[$(date)] Gathering GVCFs"
@@ -171,7 +149,6 @@ gatk GatherVcfs \
     -O "${OUTDIR}/${SAMPLE}.vcf.gz"
 
 rm -rf "${GVCF_DIR}"
-
 
 echo "[$(date)] Select SNP and INDELs"
 
@@ -193,7 +170,6 @@ rm "${OUTDIR}/${SAMPLE}.recal.bai"
 rm "${OUTDIR}/${SAMPLE}.SNP.vcf.gz.tbi"
 rm "${OUTDIR}/${SAMPLE}.INDEL.vcf.gz.tbi"
 rm "${OUTDIR}/${SAMPLE}.vcf.gz.tbi"
-rm "$INTERVAL_FILE"
 
 echo ""
 echo "Pipeline completed successfully."
