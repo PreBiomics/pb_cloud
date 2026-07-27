@@ -22,7 +22,7 @@ mkdir -p "${QC}"
 
 BAM="${OUTDIR}/${SAMPLE}.bam"
 SORTED_BAM="${OUTDIR}/${SAMPLE}.sorted.bam"
-
+RECALL_BAM="${OUTDIR}/${SAMPLE}.recal.bam"
 
 echo "[$(date)] Running BWA-MEM2..."
 
@@ -81,7 +81,6 @@ gatk BaseRecalibrator \
 
 echo "[$(date)] ApplyBQSR"
 
-RECALL_BAM = "${OUTDIR}/${SAMPLE}.recal.bam"
 gatk ApplyBQSR \
     -R "${REFERENCE}.fa" \
     -I "${SORTED_BAM}" \
