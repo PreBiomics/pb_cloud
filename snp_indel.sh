@@ -15,6 +15,7 @@ REFERENCE=/databases/$2
 OUTDIR=/output/tmp/wgs/${SAMPLE}
 QC="${OUTDIR}/QC"
 THREADS=$3
+SHARDS=32
 
 mkdir -p "${QC}"
 
@@ -94,45 +95,76 @@ echo "[$(date)] HaplotypeCaller"
 echo
 echo "[$(date)] Preparing intervals"
 
-INTERVAL_FILE="/output/${2}.intervals"
-if [[ ! -f "${INTERVAL_FILE}" ]]; then
-    TARGET=100000000
-    awk -v TARGET="${TARGET}" '
-    {
-        chr=$1
-        len=$2
-        start=1
-        while(start<=len){
-            end=start+TARGET-1
-            if(end>len)
-                end=len
-            print chr":"start"-"end
-            start=end+1
+SHARD_DIR="${OUTDIR}/${2}_shards"
+mkdir -p "${SHARD_DIR}"
+
+if [[ ! -f "${SHARD_DIR}/shard_31.list" ]]; then
+    rm -f "${SHARD_DIR}"/*.list
+    TOTAL=$(awk '
+        $1 ~ /^chr([1-9]|1[0-9]|2[0-2]|X|Y)$/ {
+            sum += $2
         }
-    }
-    ' "${REFERENCE}.fa.fai" > "${INTERVAL_FILE}"
+        END{
+            print sum
+        }
+    ' "${REFERENCE}.fa.fai")
+    TARGET=$((TOTAL / SHARDS))
+    SHARD=0
+    CURRENT=0
+    while read CHR LEN REST
+    do
+		if ! [[ "$CHR" =~ ^chr([1-9]|1[0-9]|2[0-2]|X|Y)$ ]]
+        then
+            echo "$CHR" >> "${SHARD_DIR}/shard_31.list"
+            continue
+        fi
+        START=1
+        while (( START <= LEN ))
+        do
+            REMAIN=$((TARGET-CURRENT))
+            LEFT=$((LEN-START+1))
+            if (( SHARD == SHARDS-1 ))
+            then
+                echo "${CHR}:${START}-${LEN}" \
+                    >> "${SHARD_DIR}/shard_$(printf "%02d" $SHARD).list"
+                break
+            fi
+            if (( LEFT <= REMAIN ))
+            then
+                echo "${CHR}:${START}-${LEN}" \
+                    >> "${SHARD_DIR}/shard_$(printf "%02d" $SHARD).list"
+                CURRENT=$((CURRENT+LEFT))
+                START=$((LEN+1))
+            else
+                END=$((START+REMAIN-1))
+                echo "${CHR}:${START}-${END}" \
+                    >> "${SHARD_DIR}/shard_$(printf "%02d" $SHARD).list"
+                START=$((END+1))
+                SHARD=$((SHARD+1))
+                CURRENT=0
+            fi
+        done
+    done < "${REFERENCE}.fa.fai"
+
 fi
 
 echo
 echo "[$(date)] Running HaplotypeCaller"
+
 GVCF_DIR="${OUTDIR}/gvcf_parts"
 mkdir -p "${GVCF_DIR}"
 
-export REFERENCE
-export RECAL_BAM
-export GVCF_DIR
+parallel \
+    -j ${THREADS} \
+    --halt soon,fail=1 \
+    ./hc_worker.sh \
+        "${REFERENCE}" \
+        "${RECAL_BAM}" \
+        {} \
+        "${GVCF_DIR}"/{/.}.g.vcf.gz \
+    ::: "${SHARD_DIR}"/*.list
 
-parallel --jobs "${THREADS}" --halt soon,fail=1 \
-gatk HaplotypeCaller \
--R "${REFERENCE}.fa" \
--I "${RECAL_BAM}" \
--L {} \
--ERC GVCF \
---native-pair-hmm-threads 1 \
--O "${GVCF_DIR}"/{#}.g.vcf.gz \
-:::: "${INTERVAL_FILE}"
-
-rm "$INTERVAL_FILE"
+rm -rf "${SHARD_DIR}"
 
 echo
 echo "[$(date)] Gathering GVCFs"
