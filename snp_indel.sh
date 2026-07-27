@@ -85,8 +85,8 @@ gatk ApplyBQSR \
     -R "${REFERENCE}.fa" \
     -I "${SORTED_BAM}" \
     --bqsr-recal-file "${OUTDIR}/${SAMPLE}.recal.table" \
-    -O $RECALL_BAM
-samtools index $RECALL_BAM
+    -O $RECAL_BAM
+samtools index $RECAL_BAM
 
 rm "${SORTED_BAM}"
 rm "${SORTED_BAM}.bai"
