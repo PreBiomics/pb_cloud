@@ -81,13 +81,13 @@ gatk BaseRecalibrator \
 
 echo "[$(date)] ApplyBQSR"
 
+RECALL_BAM = "${OUTDIR}/${SAMPLE}.recal.bam"
 gatk ApplyBQSR \
     -R "${REFERENCE}.fa" \
     -I "${SORTED_BAM}" \
     --bqsr-recal-file "${OUTDIR}/${SAMPLE}.recal.table" \
-    -O "${OUTDIR}/${SAMPLE}.recal.bam"
-
-samtools index "${OUTDIR}/${SAMPLE}.recal.bam"
+    -O $RECALL_BAM
+samtools index $RECALL_BAM
 
 rm "${SORTED_BAM}"
 rm "${SORTED_BAM}.bai"
@@ -102,36 +102,25 @@ echo
 echo "[$(date)] Preparing intervals"
 
 INTERVAL_FILE="${OUTDIR}/${2}.32.intervals"
-
 if [[ ! -f "${INTERVAL_FILE}" ]]; then
-
     echo "Generating interval file..."
-
     awk '
     BEGIN{
         TARGET=100000000
     }
-
     {
         chr=$1
         len=$2
-
         start=1
-
         while(start<=len){
-
             end=start+TARGET-1
-
             if(end>len)
                 end=len
-
             print chr":"start"-"end
-
             start=end+1
         }
     }
     ' "${REFERENCE}.fa.fai" > "${INTERVAL_FILE}"
-
 fi
 
 ################################################################################
@@ -154,9 +143,7 @@ cat "${INTERVAL_FILE}" | parallel \
     --halt soon,fail=1 \
 '
 INTERVAL={}
-
 NAME=$(echo ${INTERVAL} | sed "s/:/_/;s/-/_/")
-
 gatk HaplotypeCaller \
     -R ${REFERENCE}.fa \
     -I ${RECAL_BAM} \
