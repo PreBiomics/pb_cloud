@@ -9,14 +9,14 @@ ARGS=()
 
 while read L
 do
-	    ARGS+=("-L")
-	        ARGS+=("$L")
-	done < "$LIST"
+    ARGS+=("-L")
+    ARGS+=("$L")
+done < "$LIST"
 
-	gatk HaplotypeCaller \
-		    -R "${REFERENCE}.fa" \
-		        -I "$BAM" \
-			    "${ARGS[@]}" \
-			        -ERC GVCF \
-				    --native-pair-hmm-threads 1 \
-				        -O "$OUT"
+gatk HaplotypeCaller \
+    -R "${REFERENCE}.fa" \
+    -I "$BAM" \
+    "${ARGS[@]}" \
+    -ERC GVCF \
+    --native-pair-hmm-threads 1 \
+    -O "$OUT"
