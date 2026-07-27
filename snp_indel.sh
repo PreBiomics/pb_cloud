@@ -1,5 +1,4 @@
 #!/bin/bash
-
 set -euo pipefail
 
 export PATH=/output/pb_cloud/wgs:$PATH
