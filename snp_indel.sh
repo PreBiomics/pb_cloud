@@ -24,7 +24,7 @@ BAM="${OUTDIR}/${SAMPLE}.bam"
 SORTED_BAM="${OUTDIR}/${SAMPLE}.sorted.bam"
 RECAL_BAM="${OUTDIR}/${SAMPLE}.recal.bam"
 
-FASTP_JSON="/input/${SAMPLE}/${SAMPLE}.fastp.json"
+FASTP_JSON="/input/${SAMPLE}/${SAMPLE}.json"
 FLAGSTAT="${QC}/${SAMPLE}.flagstat.txt"
 MOSDEPTH_PREFIX="${QC}/${SAMPLE}"
 REPORT="${QC}/${SAMPLE}.qc.tsv"
