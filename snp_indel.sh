@@ -234,12 +234,17 @@ done
 
 gatk GatherVcfs \
     "${INPUTS[@]}" \
-    -O "${OUTDIR}/${SAMPLE}.vcf.gz"
+    -O "${OUTDIR}/${SAMPLE}.g.vcf.gz"
 
 rm -rf "${GVCF_DIR}"
 
 gatk IndexFeatureFile \
-    -I "${OUTDIR}/${SAMPLE}.vcf.gz"
+    -I "${OUTDIR}/${SAMPLE}.g.vcf.gz"
+
+gatk GenotypeGVCFs \
+    -R "${REFERENCE}.fa" \
+    -V "${OUTDIR}/${SAMPLE}.vcf.gz" \
+    -O "${OUTDIR}/${SAMPLE}.genotyped.vcf.gz"
 
 echo "[$(date)] Select SNP and INDELs"
 
