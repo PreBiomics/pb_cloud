@@ -95,8 +95,9 @@ Q30_RATE=$(jq -r '
 MAPPING_RATE=$(
 awk '
 /mapped \(/{
-    match($0,/\(([0-9.]+)%/,a)
-    print a[1]
+    sub(/^.*\(/,"")
+    sub(/%.*/,"")
+    print
     exit
 }
 ' "${FLAGSTAT}"
