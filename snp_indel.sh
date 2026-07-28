@@ -243,8 +243,8 @@ gatk IndexFeatureFile \
 
 gatk GenotypeGVCFs \
     -R "${REFERENCE}.fa" \
-    -V "${OUTDIR}/${SAMPLE}.vcf.gz" \
-    -O "${OUTDIR}/${SAMPLE}.genotyped.vcf.gz"
+    -V "${OUTDIR}/${SAMPLE}.g.vcf.gz" \
+    -O "${OUTDIR}/${SAMPLE}.vcf.gz"
 
 echo "[$(date)] Select SNP and INDELs"
 
