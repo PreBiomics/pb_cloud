@@ -75,22 +75,12 @@ mosdepth \
 
 wait
 
-########################################
-# FASTP
-########################################
-
 RAW_READS=$(jq -r '.summary.before_filtering.total_reads' "${FASTP_JSON}")
-
 QC_READS=$(jq -r '.summary.after_filtering.total_reads' "${FASTP_JSON}")
-
 Q30_RATE=$(jq -r '
     (.summary.after_filtering.q30_rate * 100)
     | tostring
 ' "${FASTP_JSON}")
-
-########################################
-# FLAGSTAT
-########################################
 
 MAPPING_RATE=$(
 awk '
@@ -102,10 +92,6 @@ awk '
 }
 ' "${FLAGSTAT}"
 )
-
-########################################
-# MOSDEPTH
-########################################
 
 MEAN_DEPTH=$(
 awk '
@@ -121,7 +107,6 @@ $1=="total"{
 ########################################
 
 THRESHOLD=$(awk -v d="${MEAN_DEPTH}" 'BEGIN{print d*0.2}')
-
 UNIFORMITY=$(
 awk -v t="${THRESHOLD}" '
 $1>=t{
@@ -208,6 +193,8 @@ echo
 echo "[$(date)] Running HaplotypeCaller"
 
 GVCF_DIR="${OUTDIR}/gvcf_parts"
+VCF_DIR="${OUTDIR}/vcf_parts"
+mkdir -p "${GVCF_DIR}"
 mkdir -p "${GVCF_DIR}"
 
 parallel \
@@ -238,10 +225,42 @@ gatk GatherVcfs \
 
 rm -rf "${GVCF_DIR}"
 
-gatk GenotypeGVCFs \
-    -R "${REFERENCE}.fa" \
-    -V "${OUTDIR}/${SAMPLE}.g.vcf.gz" \
+echo "[$(date)] Genotyping shards"
+
+find "${GVCF_DIR}" -name "shard_*.g.vcf.gz" \
+| sort \
+| parallel -j "${SHARDS}" '
+    BASE=$(basename {} .g.vcf.gz)
+
+    gatk IndexFeatureFile \
+        -I {}
+
+    gatk GenotypeGVCFs \
+        -R "'"${REFERENCE}.fa"'" \
+        -V {} \
+        -O "'"${VCF_DIR}"'/${BASE}.vcf.gz"
+
+    gatk IndexFeatureFile \
+        -I "'"${VCF_DIR}"'/${BASE}.vcf.gz"
+'
+
+echo "[$(date)] Gathering VCFs"
+
+VCF_INPUTS=()
+
+for VCF in $(find "${VCF_DIR}" -name "shard_*.vcf.gz" | sort)
+do
+    VCF_INPUTS+=("-I" "$VCF")
+done
+
+gatk GatherVcfs \
+    "${VCF_INPUTS[@]}" \
     -O "${OUTDIR}/${SAMPLE}.vcf.gz"
+    
+rm -rf "${VCF_DIR}"
+
+gatk IndexFeatureFile \
+    -I "${OUTDIR}/${SAMPLE}.vcf.gz"
 
 echo "[$(date)] Select SNP and INDELs"
 
@@ -256,7 +275,6 @@ gatk SelectVariants \
         -V ${OUTDIR}/${SAMPLE}.vcf.gz \
         --select-type-to-include INDEL \
         -O "${OUTDIR}/${SAMPLE}.INDEL.vcf.gz" &
-
 wait 
 
 SNPS=$(bcftools view -H "${OUTDIR}/${SAMPLE}.SNP.vcf.gz" | wc -l)
