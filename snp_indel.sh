@@ -229,17 +229,14 @@ echo "[$(date)] Genotyping shards"
 
 find "${GVCF_DIR}" -name "shard_*.g.vcf.gz" \
 | sort \
-| parallel -j "${SHARDS}" '
+| parallel -j "${THREADS}" '
     BASE=$(basename {} .g.vcf.gz)
-
     gatk IndexFeatureFile \
         -I {}
-
     gatk GenotypeGVCFs \
         -R "'"${REFERENCE}.fa"'" \
         -V {} \
         -O "'"${VCF_DIR}"'/${BASE}.vcf.gz"
-
     gatk IndexFeatureFile \
         -I "'"${VCF_DIR}"'/${BASE}.vcf.gz"
 '
