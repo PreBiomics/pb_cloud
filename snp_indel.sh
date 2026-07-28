@@ -27,7 +27,7 @@ RECAL_BAM="${OUTDIR}/${SAMPLE}.recal.bam"
 FASTP_JSON="/input/${SAMPLE}/${SAMPLE}.json"
 FLAGSTAT="${QC}/${SAMPLE}.flagstat.txt"
 MOSDEPTH_PREFIX="${QC}/${SAMPLE}"
-REPORT="${QC}/${SAMPLE}.qc.tsv"
+REPORT="${OUTDIR}/${SAMPLE}.report.tsv"
 
 echo "[$(date)] Running BWA-MEM2..."
 
@@ -283,7 +283,10 @@ rm "${OUTDIR}/${SAMPLE}.recal.bam.bai"
 rm "${OUTDIR}/${SAMPLE}.recal.bai"
 rm "${OUTDIR}/${SAMPLE}.SNP.vcf.gz.tbi"
 rm "${OUTDIR}/${SAMPLE}.INDEL.vcf.gz.tbi"
+rm "${OUTDIR}/${SAMPLE}.g.vcf.gz.tbi"
+rm "${OUTDIR}/${SAMPLE}.vcf.gz"
 rm "${OUTDIR}/${SAMPLE}.vcf.gz.tbi"
+rm -rf ${QC}
 
 echo ""
 echo "Pipeline completed successfully."
