@@ -223,8 +223,6 @@ gatk GatherVcfs \
     "${INPUTS[@]}" \
     -O "${OUTDIR}/${SAMPLE}.g.vcf.gz"
 
-rm -rf "${GVCF_DIR}"
-
 echo "[$(date)] Genotyping shards"
 
 find "${GVCF_DIR}" -name "shard_*.g.vcf.gz" \
@@ -240,6 +238,8 @@ find "${GVCF_DIR}" -name "shard_*.g.vcf.gz" \
     gatk IndexFeatureFile \
         -I "'"${VCF_DIR}"'/${BASE}.vcf.gz"
 '
+
+rm -rf "${GVCF_DIR}"
 
 echo "[$(date)] Gathering VCFs"
 
