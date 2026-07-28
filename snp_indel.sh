@@ -260,8 +260,8 @@ gatk SelectVariants \
         --select-type-to-include INDEL \
         -O "${OUTDIR}/${SAMPLE}.INDEL.vcf.gz"
 
-SNPS=$(bcftools index -n "${OUTDIR}/${SAMPLE}.SNP.vcf.gz")
-INDELS=$(bcftools index -n "${OUTDIR}/${SAMPLE}.INDEL.vcf.gz")
+SNPS=$(bcftools view -H "${OUTDIR}/${SAMPLE}.SNP.vcf.gz" | wc -l)
+INDELS=$(bcftools view -H "${OUTDIR}/${SAMPLE}.INDEL.vcf.gz" | wc -l)
 
 {
 printf "Metric\tValue\n"
