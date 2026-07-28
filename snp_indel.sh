@@ -195,7 +195,7 @@ echo "[$(date)] Running HaplotypeCaller"
 GVCF_DIR="${OUTDIR}/gvcf_parts"
 VCF_DIR="${OUTDIR}/vcf_parts"
 mkdir -p "${GVCF_DIR}"
-mkdir -p "${GVCF_DIR}"
+mkdir -p "${VCF_DIR}"
 
 parallel \
     -j ${THREADS} \
