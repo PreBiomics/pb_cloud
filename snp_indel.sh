@@ -238,9 +238,6 @@ gatk GatherVcfs \
 
 rm -rf "${GVCF_DIR}"
 
-gatk IndexFeatureFile \
-    -I "${OUTDIR}/${SAMPLE}.g.vcf.gz"
-
 gatk GenotypeGVCFs \
     -R "${REFERENCE}.fa" \
     -V "${OUTDIR}/${SAMPLE}.g.vcf.gz" \
@@ -252,13 +249,15 @@ gatk SelectVariants \
         -R "${REFERENCE}.fa" \
         -V ${OUTDIR}/${SAMPLE}.vcf.gz \
         --select-type-to-include SNP \
-        -O "${OUTDIR}/${SAMPLE}.SNP.vcf.gz"
+        -O "${OUTDIR}/${SAMPLE}.SNP.vcf.gz" &
 
 gatk SelectVariants \
         -R "${REFERENCE}.fa" \
         -V ${OUTDIR}/${SAMPLE}.vcf.gz \
         --select-type-to-include INDEL \
-        -O "${OUTDIR}/${SAMPLE}.INDEL.vcf.gz"
+        -O "${OUTDIR}/${SAMPLE}.INDEL.vcf.gz" &
+
+wait 
 
 SNPS=$(bcftools view -H "${OUTDIR}/${SAMPLE}.SNP.vcf.gz" | wc -l)
 INDELS=$(bcftools view -H "${OUTDIR}/${SAMPLE}.INDEL.vcf.gz" | wc -l)
