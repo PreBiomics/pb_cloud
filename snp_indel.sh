@@ -24,6 +24,11 @@ BAM="${OUTDIR}/${SAMPLE}.bam"
 SORTED_BAM="${OUTDIR}/${SAMPLE}.sorted.bam"
 RECAL_BAM="${OUTDIR}/${SAMPLE}.recal.bam"
 
+FASTP_JSON="/input/${SAMPLE}/${SAMPLE}.fastp.json"
+FLAGSTAT="${QC}/${SAMPLE}.flagstat.txt"
+MOSDEPTH_PREFIX="${QC}/${SAMPLE}"
+REPORT="${QC}/${SAMPLE}.qc.tsv"
+
 echo "[$(date)] Running BWA-MEM2..."
 
 bwa-mem2 mem \
@@ -70,38 +75,60 @@ mosdepth \
 
 wait
 
-grep "mapped (" "${QC}/${SAMPLE}.flagstat.txt" \
-| sed -E 's/.*\(([0-9.]+)%.*/\1/' \
-> "${QC}/${SAMPLE}.mapping_rate.txt"
+########################################
+# FASTP
+########################################
 
+RAW_READS=$(jq -r '.summary.before_filtering.total_reads' "${FASTP_JSON}")
+
+QC_READS=$(jq -r '.summary.after_filtering.total_reads' "${FASTP_JSON}")
+
+Q30_RATE=$(jq -r '
+    (.summary.after_filtering.q30_rate * 100)
+    | tostring
+' "${FASTP_JSON}")
+
+########################################
+# FLAGSTAT
+########################################
+
+MAPPING_RATE=$(
+awk '
+/mapped \(/{
+    match($0,/\(([0-9.]+)%/,a)
+    print a[1]
+    exit
+}
+' "${FLAGSTAT}"
+)
+
+########################################
+# MOSDEPTH
+########################################
+
+MEAN_DEPTH=$(
 awk '
 $1=="total"{
-    printf("%.2f\n",$4)
+    print $4
 }
-' "${QC}/${SAMPLE}.mosdepth.summary.txt" \
-> "${QC}/${SAMPLE}.mean_depth.txt"
+' "${MOSDEPTH_PREFIX}.mosdepth.summary.txt"
+)
 
-cp \
-"${QC}/${SAMPLE}.mean_depth.txt" \
-"${QC}/${SAMPLE}.sequencing_depth.txt"
-MEAN=$(cat "${QC}/${SAMPLE}.mean_depth.txt")
-awk -v mean="${MEAN}" '
-BEGIN{
-    threshold = 0.2 * mean
-}
-$1 >= threshold{
-    pct = $2
-}
-END{
-    printf("%.2f\n", pct * 100)
-}
-' "${QC}/${SAMPLE}.mosdepth.global.dist.txt" \
-> "${QC}/${SAMPLE}.coverage_uniformity.txt"
+########################################
+# Coverage uniformity
+# (% genome covered at >=20% of mean depth)
+########################################
 
-rm -f "${QC}/${SAMPLE}.mosdepth.global.dist.txt"
-rm -f "${QC}/${SAMPLE}.mosdepth.region.dist.txt"
-rm -f "${QC}/${SAMPLE}.regions.bed.gz"
-rm -f "${QC}/${SAMPLE}.regions.bed.gz.csi"
+THRESHOLD=$(awk -v d="${MEAN_DEPTH}" 'BEGIN{print d*0.2}')
+
+UNIFORMITY=$(
+awk -v t="${THRESHOLD}" '
+$1>=t{
+    print $2*100
+    exit
+}
+' "${MOSDEPTH_PREFIX}.mosdepth.global.dist.txt"
+)
 
 echo "[$(date)] BaseRecalibrator"
 
@@ -227,13 +254,23 @@ gatk SelectVariants \
         --select-type-to-include INDEL \
         -O "${OUTDIR}/${SAMPLE}.INDEL.vcf.gz"
 
-bcftools index -n \
-    "${OUTDIR}/${SAMPLE}.SNP.vcf.gz" \
-    > "${QC}/${SAMPLE}.num_snps.txt"
+SNPS=$(bcftools index -n "${OUTDIR}/${SAMPLE}.SNP.vcf.gz")
+INDELS=$(bcftools index -n "${OUTDIR}/${SAMPLE}.INDEL.vcf.gz")
 
-bcftools index -n \
-    "${OUTDIR}/${SAMPLE}.INDEL.vcf.gz" \
-    > "${QC}/${SAMPLE}.num_indels.txt"
+{
+printf "Metric\tValue\n"
+printf "Sample\t%s\n" "${SAMPLE}"
+printf "Raw_reads\t%s\n" "${RAW_READS}"
+printf "QC_passed_reads\t%s\n" "${QC_READS}"
+printf "Q30_percent\t%.2f\n" "${Q30_RATE}"
+printf "Mean_depth\t%.2f\n" "${MEAN_DEPTH}"
+printf "Coverage_uniformity_percent\t%.2f\n" "${UNIFORMITY}"
+printf "Mapping_rate_percent\t%.2f\n" "${MAPPING_RATE}"
+printf "SNPs\t%s\n" "${SNPS}"
+printf "INDELs\t%s\n" "${INDELS}"
+} > "${REPORT}"
+
+echo "QC report written to ${REPORT}"
 
 rm "${OUTDIR}/${SAMPLE}.recal.table"
 rm "${OUTDIR}/${SAMPLE}.recal.bam.bai"
