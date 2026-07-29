@@ -67,9 +67,16 @@ samtools flagstat \
     "${SORTED_BAM}" \
     > "${QC}/${SAMPLE}.flagstat.txt" &
 
+awk '
+$1 ~ /^chr([1-9]|1[0-9]|2[0-2]|X|Y|M)$/ {
+    print $1 "\t0\t" $2
+}
+' "${REFERENCE}.fa.fai" > "${QC}/primary_genome.bed"
+
 mosdepth \
-    --threads "${MOSDEPTH_THREADS}" \
+    -b primary_genome.bed \    
     --no-per-base \
+    --threads "${MOSDEPTH_THREADS}" \
     "${QC}/${SAMPLE}" \
     "${SORTED_BAM}" &
 
