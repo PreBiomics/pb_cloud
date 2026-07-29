@@ -239,11 +239,11 @@ do
     BAMS+=("-I" "$B")
 done
 
-rm -rf "${BQSR_BAM_DIR}"
-
 gatk GatherBamFiles \
     "${BAMS[@]}" \
     -O "${TMP_BAM}"
+    
+rm -rf "${BQSR_BAM_DIR}"
     
 samtools sort -@ ${THREADS} -o "${RECAL_BAM}" "${TMP_BAM}"   
 rm -f "${TMP_BAM}"
