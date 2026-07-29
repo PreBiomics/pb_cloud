@@ -74,11 +74,11 @@ $1 ~ /^chr([1-9]|1[0-9]|2[0-2]|X|Y|M)$/ {
 ' "${REFERENCE}.fa.fai" > "${QC}/primary_genome.bed"
 
 mosdepth \
-    -b "${QC}/primary_genome.bed" \    
-    --no-per-base \
-    --threads "${MOSDEPTH_THREADS}" \
-    "${QC}/${SAMPLE}" \
-    "${SORTED_BAM}" &
+  -b "${QC}/primary_genome.bed" \
+  --no-per-base \
+  --threads "${MOSDEPTH_THREADS}" \
+  "${QC}/${SAMPLE}" \
+  "${SORTED_BAM}" &
 
 wait
 
