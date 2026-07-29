@@ -124,30 +124,6 @@ $1=="total" && $2>=t {
 ' "${MOSDEPTH_PREFIX}.mosdepth.global.dist.txt"
 )
 
-echo "[$(date)] BaseRecalibrator"
-
-gatk BaseRecalibrator \
-    -R "${REFERENCE}.fa" \
-    -I "${SORTED_BAM}" \
-    --known-sites /databases/Homo_sapiens_assembly38.dbsnp138.vcf.gz \
-    --known-sites /databases/Homo_sapiens_assembly38.known_indels.vcf.gz \
-    --known-sites /databases/Mills_and_1000G_gold_standard.indels.hg38.vcf.gz \
-    -O "${OUTDIR}/${SAMPLE}.recal.table"
-
-echo "[$(date)] ApplyBQSR"
-
-gatk ApplyBQSR \
-    -R "${REFERENCE}.fa" \
-    -I "${SORTED_BAM}" \
-    --bqsr-recal-file "${OUTDIR}/${SAMPLE}.recal.table" \
-    -O $RECAL_BAM
-samtools index $RECAL_BAM
-
-rm "${SORTED_BAM}"
-rm "${SORTED_BAM}.bai"
-
-echo "[$(date)] HaplotypeCaller"
-
 echo
 echo "[$(date)] Preparing intervals"
 
@@ -196,6 +172,75 @@ if [[ ! -f "${SHARD_DIR}/shard_31.list" ]]; then
         done
     done < "${REFERENCE}.fa.fai"
 fi
+
+echo
+echo "[$(date)] BaseRecalibrator"
+
+BQSR_DIR="${OUTDIR}/bqsr_parts"
+BQSR_BAM_DIR="${OUTDIR}/recal_parts"
+
+mkdir -p "${BQSR_DIR}"
+mkdir -p "${BQSR_BAM_DIR}"
+
+find "${SHARD_DIR}" -name "shard_*.list" \
+| sort \
+| parallel -j "${THREADS}" '
+    BASE=$(basename {} .list)
+    gatk BaseRecalibrator \
+        -R "'"${REFERENCE}.fa"'" \
+        -I "'"${SORTED_BAM}"'" \
+        --known-sites /databases/Homo_sapiens_assembly38.dbsnp138.vcf.gz \
+        --known-sites /databases/Homo_sapiens_assembly38.known_indels.vcf.gz \
+        --known-sites /databases/Mills_and_1000G_gold_standard.indels.hg38.vcf.gz \
+        -L {} \
+        -O "'"${BQSR_DIR}"'/${BASE}.table"
+
+echo "[$(date)] GatherBQSRReports"
+
+TABLES=()
+for T in $(find "${BQSR_DIR}" -name "shard_*.table" | sort)
+do
+    TABLES+=("-I" "$T")
+done
+
+gatk GatherBQSRReports \
+    "${TABLES[@]}" \
+    -O "${OUTDIR}/${SAMPLE}.recal.table"
+
+rm -rf "${BQSR_DIR}"
+echo "[$(date)] ApplyBQSR"
+
+find "${SHARD_DIR}" -name "shard_*.list" \
+| sort \
+| parallel -j "${THREADS}" '
+    BASE=$(basename {} .list)
+
+    gatk ApplyBQSR \
+        -R "'"${REFERENCE}.fa"'" \
+        -I "'"${SORTED_BAM}"'" \
+        --bqsr-recal-file "'"${OUTDIR}/${SAMPLE}.recal.table"'" \
+        -L {} \
+        -O "'"${BQSR_BAM_DIR}"'/${BASE}.bam"
+
+    samtools index "'"${BQSR_BAM_DIR}"'/${BASE}.bam"
+
+echo "[$(date)] GatherBamFiles"
+
+BAMS=()
+for B in $(find "${BQSR_BAM_DIR}" -name "shard_*.bam" | sort)
+do
+    BAMS+=("-I" "$B")
+done
+gatk GatherBamFiles \
+    "${BAMS[@]}" \
+    -O "${RECAL_BAM}"
+samtools index "${RECAL_BAM}"
+
+rm -rf "${BQSR_BAM_DIR}"
+rm "${SORTED_BAM}"
+rm "${SORTED_BAM}.bai"
+
+echo "[$(date)] HaplotypeCaller"
 
 echo
 echo "[$(date)] Running HaplotypeCaller"
