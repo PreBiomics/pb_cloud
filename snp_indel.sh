@@ -236,8 +236,10 @@ do
 done
 gatk GatherBamFiles \
     "${BAMS[@]}" \
-    -O "${RECAL_BAM}"
+    -O ${OUTDIR}/tmp.bam 
     
+samtools sort -@ ${THREADS} -o "${RECAL_BAM}" ${OUTDIR}/tmp.bam   
+rm -f ${OUTDIR}/tmp.bam 
 samtools index "${RECAL_BAM}"
 
 rm -rf "${BQSR_BAM_DIR}"
