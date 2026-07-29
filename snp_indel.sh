@@ -106,11 +106,12 @@ $1=="total"{
 # (% genome covered at >=20% of mean depth)
 ########################################
 
-THRESHOLD=$(awk -v d="${MEAN_DEPTH}" 'BEGIN{print d*0.2}')
+THRESHOLD=$(awk -v d="${MEAN_DEPTH}" 'BEGIN{printf "%.0f", d*0.2}')
+
 UNIFORMITY=$(
 awk -v t="${THRESHOLD}" '
-$1>=t{
-    print $2*100
+$1=="total" && $2>=t {
+    printf "%.2f", $3*100
     exit
 }
 ' "${MOSDEPTH_PREFIX}.mosdepth.global.dist.txt"
