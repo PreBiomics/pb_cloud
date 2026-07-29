@@ -194,6 +194,7 @@ find "${SHARD_DIR}" -name "shard_*.list" \
         --known-sites /databases/Mills_and_1000G_gold_standard.indels.hg38.vcf.gz \
         -L {} \
         -O "'"${BQSR_DIR}"'/${BASE}.table"
+'
 
 echo "[$(date)] GatherBQSRReports"
 
@@ -223,6 +224,7 @@ find "${SHARD_DIR}" -name "shard_*.list" \
         -O "'"${BQSR_BAM_DIR}"'/${BASE}.bam"
 
     samtools index "'"${BQSR_BAM_DIR}"'/${BASE}.bam"
+'
 
 echo "[$(date)] GatherBamFiles"
 
