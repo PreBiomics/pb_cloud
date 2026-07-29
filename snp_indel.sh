@@ -297,7 +297,6 @@ rm "${OUTDIR}/${SAMPLE}.recal.bam.bai"
 rm "${OUTDIR}/${SAMPLE}.recal.bai"
 rm "${OUTDIR}/${SAMPLE}.SNP.vcf.gz.tbi"
 rm "${OUTDIR}/${SAMPLE}.INDEL.vcf.gz.tbi"
-rm "${OUTDIR}/${SAMPLE}.g.vcf.gz.tbi"
 rm "${OUTDIR}/${SAMPLE}.vcf.gz"
 rm "${OUTDIR}/${SAMPLE}.vcf.gz.tbi"
 rm -rf ${QC}
