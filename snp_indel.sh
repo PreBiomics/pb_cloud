@@ -23,6 +23,7 @@ mkdir -p "${QC}"
 BAM="${OUTDIR}/${SAMPLE}.bam"
 SORTED_BAM="${OUTDIR}/${SAMPLE}.sorted.bam"
 RECAL_BAM="${OUTDIR}/${SAMPLE}.recal.bam"
+TMP_BAM="${OUTDIR}/${SAMPLE}.tmp.bam"
 
 FASTP_JSON="/input/${SAMPLE}/${SAMPLE}.json"
 FLAGSTAT="${QC}/${SAMPLE}.flagstat.txt"
@@ -227,6 +228,9 @@ find "${SHARD_DIR}" -name "shard_*.list" \
     samtools index "'"${BQSR_BAM_DIR}"'/${BASE}.bam"
 '
 
+rm -f "${SORTED_BAM}"
+rm -f "${SORTED_BAM}.bai"
+
 echo "[$(date)] GatherBamFiles"
 
 BAMS=()
@@ -234,17 +238,16 @@ for B in $(find "${BQSR_BAM_DIR}" -name "shard_*.bam" | sort)
 do
     BAMS+=("-I" "$B")
 done
-gatk GatherBamFiles \
-    "${BAMS[@]}" \
-    -O ${OUTDIR}/tmp.bam 
-    
-samtools sort -@ ${THREADS} -o "${RECAL_BAM}" ${OUTDIR}/tmp.bam   
-rm -f ${OUTDIR}/tmp.bam 
-samtools index "${RECAL_BAM}"
 
 rm -rf "${BQSR_BAM_DIR}"
-rm -f "${SORTED_BAM}"
-rm -f "${SORTED_BAM}.bai"
+
+gatk GatherBamFiles \
+    "${BAMS[@]}" \
+    -O "${TMP_BAM}"
+    
+samtools sort -@ ${THREADS} -o "${RECAL_BAM}" "${TMP_BAM}"   
+rm -f "${TMP_BAM}"
+samtools index "${RECAL_BAM}"
 
 echo "[$(date)] HaplotypeCaller"
 
