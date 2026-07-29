@@ -219,6 +219,7 @@ find "${SHARD_DIR}" -name "shard_*.list" \
     gatk ApplyBQSR \
         -R "'"${REFERENCE}.fa"'" \
         -I "'"${SORTED_BAM}"'" \
+        --interval-merging-rule OVERLAPPING_ONLY \
         --bqsr-recal-file "'"${OUTDIR}/${SAMPLE}.recal.table"'" \
         -L {} \
         -O "'"${BQSR_BAM_DIR}"'/${BASE}.bam"
