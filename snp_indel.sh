@@ -177,54 +177,61 @@ fi
 echo
 echo "[$(date)] BaseRecalibrator"
 
+echo
+echo "[$(date)] BaseRecalibrator"
+
 BQSR_DIR="${OUTDIR}/bqsr_parts"
 BQSR_BAM_DIR="${OUTDIR}/recal_parts"
 
-mkdir -p "${BQSR_DIR}"
-mkdir -p "${BQSR_BAM_DIR}"
+mkdir -p "${BQSR_DIR}" "${BQSR_BAM_DIR}"
 
-find "${SHARD_DIR}" -name "shard_*.list" \
-| sort \
+cut -f1 "${REFERENCE}.fa.fai" \
 | parallel -j "${THREADS}" '
-    BASE=$(basename {} .list)
+    CONTIG={}
     gatk BaseRecalibrator \
         -R "'"${REFERENCE}.fa"'" \
         -I "'"${SORTED_BAM}"'" \
         --known-sites /databases/Homo_sapiens_assembly38.dbsnp138.vcf.gz \
         --known-sites /databases/Homo_sapiens_assembly38.known_indels.vcf.gz \
         --known-sites /databases/Mills_and_1000G_gold_standard.indels.hg38.vcf.gz \
-        -L {} \
-        -O "'"${BQSR_DIR}"'/${BASE}.table"
+        -L "${CONTIG}" \
+        -O "'"${BQSR_DIR}"'/${CONTIG}.table"
 '
 
 echo "[$(date)] GatherBQSRReports"
 
 TABLES=()
-for T in $(find "${BQSR_DIR}" -name "shard_*.table" | sort)
+
+while read -r CONTIG LEN REST
 do
-    TABLES+=("-I" "$T")
-done
+    TABLE="${BQSR_DIR}/${CONTIG}.table"
+
+    if [[ -f "${TABLE}" ]]; then
+        TABLES+=("-I" "${TABLE}")
+    fi
+done < "${REFERENCE}.fa.fai"
 
 gatk GatherBQSRReports \
     "${TABLES[@]}" \
     -O "${OUTDIR}/${SAMPLE}.recal.table"
 
 rm -rf "${BQSR_DIR}"
+
+
 echo "[$(date)] ApplyBQSR"
 
-find "${SHARD_DIR}" -name "shard_*.list" \
-| sort \
+cut -f1 "${REFERENCE}.fa.fai" \
 | parallel -j "${THREADS}" '
-    BASE=$(basename {} .list)
+    CONTIG={}
 
     gatk ApplyBQSR \
         -R "'"${REFERENCE}.fa"'" \
         -I "'"${SORTED_BAM}"'" \
         --bqsr-recal-file "'"${OUTDIR}/${SAMPLE}.recal.table"'" \
-        -L {} \
-        -O "'"${BQSR_BAM_DIR}"'/${BASE}.bam"
+        -L "${CONTIG}" \
+        -O "'"${BQSR_BAM_DIR}"'/${CONTIG}.bam"
 
-    samtools index "'"${BQSR_BAM_DIR}"'/${BASE}.bam"
+    samtools index "'"${BQSR_BAM_DIR}"'/${CONTIG}.bam"
 '
 
 rm -f "${SORTED_BAM}"
@@ -233,19 +240,22 @@ rm -f "${SORTED_BAM}.bai"
 echo "[$(date)] GatherBamFiles"
 
 BAMS=()
-for B in $(find "${BQSR_BAM_DIR}" -name "shard_*.bam" | sort)
+while read -r CONTIG LEN REST
 do
-    BAMS+=("-I" "$B")
-done
+    BAM="${BQSR_BAM_DIR}/${CONTIG}.bam"
+
+    if [[ -f "${BAM}" ]]; then
+        BAMS+=("-I" "${BAM}")
+    fi
+done < "${REFERENCE}.fa.fai"
 
 gatk GatherBamFiles \
     "${BAMS[@]}" \
-    -O "${TMP_BAM}"
+    -O "${RECAL_BAM}"
     
 rm -rf "${BQSR_BAM_DIR}"
+rm -rf "${BQSR_INTERVALS}"
     
-samtools sort -@ ${THREADS} -o "${RECAL_BAM}" "${TMP_BAM}"   
-rm -f "${TMP_BAM}"
 samtools index "${RECAL_BAM}"
 
 echo "[$(date)] HaplotypeCaller"
