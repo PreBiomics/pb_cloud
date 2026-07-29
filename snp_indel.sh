@@ -48,7 +48,7 @@ samtools sort \
     -o "${SORTED_BAM}" \
     "${BAM}"
 
-rm "${BAM}"
+rm -f "${BAM}"
 
 echo "[$(date)] Indexing BAM..."
 
@@ -236,11 +236,12 @@ done
 gatk GatherBamFiles \
     "${BAMS[@]}" \
     -O "${RECAL_BAM}"
+    
 samtools index "${RECAL_BAM}"
 
 rm -rf "${BQSR_BAM_DIR}"
-rm "${SORTED_BAM}"
-rm "${SORTED_BAM}.bai"
+rm -f "${SORTED_BAM}"
+rm -f "${SORTED_BAM}.bai"
 
 echo "[$(date)] HaplotypeCaller"
 
@@ -347,13 +348,13 @@ printf "INDELs\t%s\n" "${INDELS}"
 
 echo "QC report written to ${REPORT}"
 
-rm "${OUTDIR}/${SAMPLE}.recal.table"
-rm "${OUTDIR}/${SAMPLE}.recal.bam.bai"
-rm "${OUTDIR}/${SAMPLE}.recal.bai"
-rm "${OUTDIR}/${SAMPLE}.SNP.vcf.gz.tbi"
-rm "${OUTDIR}/${SAMPLE}.INDEL.vcf.gz.tbi"
-rm "${OUTDIR}/${SAMPLE}.vcf.gz"
-rm "${OUTDIR}/${SAMPLE}.vcf.gz.tbi"
+rm -f "${OUTDIR}/${SAMPLE}.recal.table"
+rm -f "${OUTDIR}/${SAMPLE}.recal.bam.bai"
+rm -f "${OUTDIR}/${SAMPLE}.recal.bai"
+rm -f "${OUTDIR}/${SAMPLE}.SNP.vcf.gz.tbi"
+rm -f "${OUTDIR}/${SAMPLE}.INDEL.vcf.gz.tbi"
+rm -f "${OUTDIR}/${SAMPLE}.vcf.gz"
+rm -f "${OUTDIR}/${SAMPLE}.vcf.gz.tbi"
 rm -rf ${QC}
 mv ${RECAL_BAM} ${BAM}
 
