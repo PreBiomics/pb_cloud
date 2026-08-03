@@ -254,7 +254,6 @@ gatk GatherBamFiles \
     -O "${RECAL_BAM}"
     
 rm -rf "${BQSR_BAM_DIR}"
-rm -rf "${BQSR_INTERVALS}"
     
 samtools index "${RECAL_BAM}"
 
