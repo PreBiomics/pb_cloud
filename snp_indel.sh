@@ -182,31 +182,60 @@ BQSR_BAM_DIR="${OUTDIR}/recal_parts"
 
 mkdir -p "${BQSR_DIR}" "${BQSR_BAM_DIR}"
 
-cut -f1 "${REFERENCE}.fa.fai" \
-| parallel -j "${THREADS}" '
-    CONTIG={}
-    gatk BaseRecalibrator \
-        -R "'"${REFERENCE}.fa"'" \
-        -I "'"${SORTED_BAM}"'" \
-        --known-sites /databases/Homo_sapiens_assembly38.dbsnp138.vcf.gz \
-        --known-sites /databases/Homo_sapiens_assembly38.known_indels.vcf.gz \
-        --known-sites /databases/Mills_and_1000G_gold_standard.indels.hg38.vcf.gz \
-        -L "${CONTIG}" \
-        -O "'"${BQSR_DIR}"'/${CONTIG}.table"
-'
+PRIMARY=(
+    chr1 chr2 chr3 chr4 chr5 chr6 chr7 chr8 chr9 chr10
+    chr11 chr12 chr13 chr14 chr15 chr16 chr17 chr18
+    chr19 chr20 chr21 chr22 chrX chrY chrM
+)
+
+ALL_CONTIGS=($(cut -f1 "${REFERENCE}.fa.fai"))
+
+OTHER_CONTIGS=()
+for c in "${ALL_CONTIGS[@]}"; do
+    if [[ ! " ${PRIMARY[*]} " =~ " ${c} " ]]; then
+        OTHER_CONTIGS+=("$c")
+    fi
+done
+
+JOBFILE=$(mktemp)
+
+# one primary chromosome per job
+printf "%s\n" "${PRIMARY[@]}" > "${JOBFILE}"
+
+# one job containing all remaining contigs
+printf "%s\n" "$(printf '%s ' "${OTHER_CONTIGS[@]}")" >> "${JOBFILE}"
+
+parallel -j "${THREADS}" '
+JOB="{}"
+
+ARGS=()
+for c in $JOB; do
+    ARGS+=(-L "$c")
+done
+
+NAME=$(echo "$JOB" | awk "{print \$1}")
+[[ $(wc -w <<< "$JOB") -gt 1 ]] && NAME=other
+
+gatk BaseRecalibrator \
+    -R "'"${REFERENCE}.fa"'" \
+    -I "'"${SORTED_BAM}"'" \
+    --known-sites /databases/Homo_sapiens_assembly38.dbsnp138.vcf.gz \
+    --known-sites /databases/Homo_sapiens_assembly38.known_indels.vcf.gz \
+    --known-sites /databases/Mills_and_1000G_gold_standard.indels.hg38.vcf.gz \
+    "${ARGS[@]}" \
+    -O "'"${BQSR_DIR}"'/${NAME}.table"
+' :::: "${JOBFILE}"
 
 echo "[$(date)] GatherBQSRReports"
 
 TABLES=()
 
-while read -r CONTIG LEN REST
-do
-    TABLE="${BQSR_DIR}/${CONTIG}.table"
+for c in "${PRIMARY[@]}"; do
+    TABLE="${BQSR_DIR}/${c}.table"
+    [[ -f "${TABLE}" ]] && TABLES+=(-I "${TABLE}")
+done
 
-    if [[ -f "${TABLE}" ]]; then
-        TABLES+=("-I" "${TABLE}")
-    fi
-done < "${REFERENCE}.fa.fai"
+[[ -f "${BQSR_DIR}/other.table" ]] && TABLES+=(-I "${BQSR_DIR}/other.table")
 
 gatk GatherBQSRReports \
     "${TABLES[@]}" \
@@ -214,22 +243,28 @@ gatk GatherBQSRReports \
 
 rm -rf "${BQSR_DIR}"
 
-
 echo "[$(date)] ApplyBQSR"
 
-cut -f1 "${REFERENCE}.fa.fai" \
-| parallel -j "${THREADS}" '
-    CONTIG={}
+parallel -j "${THREADS}" '
+JOB="{}"
 
-    gatk ApplyBQSR \
-        -R "'"${REFERENCE}.fa"'" \
-        -I "'"${SORTED_BAM}"'" \
-        --bqsr-recal-file "'"${OUTDIR}/${SAMPLE}.recal.table"'" \
-        -L "${CONTIG}" \
-        -O "'"${BQSR_BAM_DIR}"'/${CONTIG}.bam"
+ARGS=()
+for c in $JOB; do
+    ARGS+=(-L "$c")
+done
 
-    samtools index "'"${BQSR_BAM_DIR}"'/${CONTIG}.bam"
-'
+NAME=$(echo "$JOB" | awk "{print \$1}")
+[[ $(wc -w <<< "$JOB") -gt 1 ]] && NAME=other
+
+gatk ApplyBQSR \
+    -R "'"${REFERENCE}.fa"'" \
+    -I "'"${SORTED_BAM}"'" \
+    --bqsr-recal-file "'"${OUTDIR}/${SAMPLE}.recal.table"'" \
+    "${ARGS[@]}" \
+    -O "'"${BQSR_BAM_DIR}"'/${NAME}.bam"
+
+samtools index "'"${BQSR_BAM_DIR}"'/${NAME}.bam"
+' :::: "${JOBFILE}"
 
 rm -f "${SORTED_BAM}"
 rm -f "${SORTED_BAM}.bai"
@@ -237,21 +272,21 @@ rm -f "${SORTED_BAM}.bai"
 echo "[$(date)] GatherBamFiles"
 
 BAMS=()
-while read -r CONTIG LEN REST
-do
-    BAM="${BQSR_BAM_DIR}/${CONTIG}.bam"
 
-    if [[ -f "${BAM}" ]]; then
-        BAMS+=("-I" "${BAM}")
-    fi
-done < "${REFERENCE}.fa.fai"
+for c in "${PRIMARY[@]}"; do
+    BAM="${BQSR_BAM_DIR}/${c}.bam"
+    [[ -f "${BAM}" ]] && BAMS+=(-I "${BAM}")
+done
+
+[[ -f "${BQSR_BAM_DIR}/other.bam" ]] && BAMS+=(-I "${BQSR_BAM_DIR}/other.bam")
 
 gatk GatherBamFiles \
     "${BAMS[@]}" \
     -O "${RECAL_BAM}"
-    
+
 rm -rf "${BQSR_BAM_DIR}"
-    
+rm -f "${JOBFILE}"
+
 samtools index "${RECAL_BAM}"
 
 echo "[$(date)] HaplotypeCaller"
