@@ -398,7 +398,7 @@ rm -f "${OUTDIR}/${SAMPLE}.INDEL.vcf.gz.tbi"
 rm -f "${OUTDIR}/${SAMPLE}.vcf.gz"
 rm -f "${OUTDIR}/${SAMPLE}.vcf.gz.tbi"
 rm -rf ${QC}
-mv ${RECAL_BAM} ${BAM}
+mv ${RECAL_BAM} "${OUTDIR}/${SAMPLE}.bam"
 
 echo ""
 echo "Pipeline completed successfully."
