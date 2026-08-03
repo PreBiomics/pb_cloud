@@ -179,8 +179,9 @@ echo "[$(date)] BaseRecalibrator"
 
 BQSR_DIR="${OUTDIR}/bqsr_parts"
 BQSR_BAM_DIR="${OUTDIR}/recal_parts"
+INTERVAL_DIR="${OUTDIR}/intervals"
 
-mkdir -p "${BQSR_DIR}" "${BQSR_BAM_DIR}"
+mkdir -p "${BQSR_DIR}" "${BQSR_BAM_DIR}" "${INTERVAL_DIR}"
 
 PRIMARY=(
     chr1 chr2 chr3 chr4 chr5 chr6 chr7 chr8 chr9 chr10
@@ -188,33 +189,32 @@ PRIMARY=(
     chr19 chr20 chr21 chr22 chrX chrY chrM
 )
 
-ALL_CONTIGS=($(cut -f1 "${REFERENCE}.fa.fai"))
-
-OTHER_CONTIGS=()
-for c in "${ALL_CONTIGS[@]}"; do
-    if [[ ! " ${PRIMARY[*]} " =~ " ${c} " ]]; then
-        OTHER_CONTIGS+=("$c")
-    fi
-done
-
 JOBFILE=$(mktemp)
 
-# one primary chromosome per job
-printf "%s\n" "${PRIMARY[@]}" > "${JOBFILE}"
-
-# one job containing all remaining contigs
-printf "%s\n" "$(printf '%s ' "${OTHER_CONTIGS[@]}")" >> "${JOBFILE}"
-
-parallel -j "${THREADS}" '
-JOB="{}"
-
-ARGS=()
-for c in $JOB; do
-    ARGS+=(-L "$c")
+# Create one interval list per primary chromosome
+for c in "${PRIMARY[@]}"; do
+    LIST="${INTERVAL_DIR}/${c}.list"
+    echo "${c}" > "${LIST}"
+    echo "${LIST}" >> "${JOBFILE}"
 done
 
-NAME=$(echo "$JOB" | awk "{print \$1}")
-[[ $(wc -w <<< "$JOB") -gt 1 ]] && NAME=other
+# Create interval list for all remaining contigs
+OTHER_LIST="${INTERVAL_DIR}/other.list"
+> "${OTHER_LIST}"
+
+while read -r CONTIG LEN REST
+do
+    if [[ ! " ${PRIMARY[*]} " =~ " ${CONTIG} " ]]; then
+        echo "${CONTIG}" >> "${OTHER_LIST}"
+    fi
+done < "${REFERENCE}.fa.fai"
+
+# Only add other.list if it contains anything
+[[ -s "${OTHER_LIST}" ]] && echo "${OTHER_LIST}" >> "${JOBFILE}"
+
+parallel -j "${THREADS}" '
+LIST={}
+NAME=$(basename "$LIST" .list)
 
 gatk BaseRecalibrator \
     -R "'"${REFERENCE}.fa"'" \
@@ -222,7 +222,7 @@ gatk BaseRecalibrator \
     --known-sites /databases/Homo_sapiens_assembly38.dbsnp138.vcf.gz \
     --known-sites /databases/Homo_sapiens_assembly38.known_indels.vcf.gz \
     --known-sites /databases/Mills_and_1000G_gold_standard.indels.hg38.vcf.gz \
-    "${ARGS[@]}" \
+    -L "$LIST" \
     -O "'"${BQSR_DIR}"'/${NAME}.table"
 ' :::: "${JOBFILE}"
 
@@ -230,12 +230,13 @@ echo "[$(date)] GatherBQSRReports"
 
 TABLES=()
 
-for c in "${PRIMARY[@]}"; do
-    TABLE="${BQSR_DIR}/${c}.table"
-    [[ -f "${TABLE}" ]] && TABLES+=(-I "${TABLE}")
-done
+while read -r LIST
+do
+    NAME=$(basename "${LIST}" .list)
+    TABLE="${BQSR_DIR}/${NAME}.table"
 
-[[ -f "${BQSR_DIR}/other.table" ]] && TABLES+=(-I "${BQSR_DIR}/other.table")
+    [[ -f "${TABLE}" ]] && TABLES+=(-I "${TABLE}")
+done < "${JOBFILE}"
 
 gatk GatherBQSRReports \
     "${TABLES[@]}" \
@@ -246,21 +247,14 @@ rm -rf "${BQSR_DIR}"
 echo "[$(date)] ApplyBQSR"
 
 parallel -j "${THREADS}" '
-JOB="{}"
-
-ARGS=()
-for c in $JOB; do
-    ARGS+=(-L "$c")
-done
-
-NAME=$(echo "$JOB" | awk "{print \$1}")
-[[ $(wc -w <<< "$JOB") -gt 1 ]] && NAME=other
+LIST={}
+NAME=$(basename "$LIST" .list)
 
 gatk ApplyBQSR \
     -R "'"${REFERENCE}.fa"'" \
     -I "'"${SORTED_BAM}"'" \
     --bqsr-recal-file "'"${OUTDIR}/${SAMPLE}.recal.table"'" \
-    "${ARGS[@]}" \
+    -L "$LIST" \
     -O "'"${BQSR_BAM_DIR}"'/${NAME}.bam"
 
 samtools index "'"${BQSR_BAM_DIR}"'/${NAME}.bam"
@@ -273,18 +267,20 @@ echo "[$(date)] GatherBamFiles"
 
 BAMS=()
 
-for c in "${PRIMARY[@]}"; do
-    BAM="${BQSR_BAM_DIR}/${c}.bam"
-    [[ -f "${BAM}" ]] && BAMS+=(-I "${BAM}")
-done
+while read -r LIST
+do
+    NAME=$(basename "${LIST}" .list)
+    BAM="${BQSR_BAM_DIR}/${NAME}.bam"
 
-[[ -f "${BQSR_BAM_DIR}/other.bam" ]] && BAMS+=(-I "${BQSR_BAM_DIR}/other.bam")
+    [[ -f "${BAM}" ]] && BAMS+=(-I "${BAM}")
+done < "${JOBFILE}"
 
 gatk GatherBamFiles \
     "${BAMS[@]}" \
     -O "${RECAL_BAM}"
 
 rm -rf "${BQSR_BAM_DIR}"
+rm -rf "${INTERVAL_DIR}"
 rm -f "${JOBFILE}"
 
 samtools index "${RECAL_BAM}"
