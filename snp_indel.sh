@@ -177,9 +177,6 @@ fi
 echo
 echo "[$(date)] BaseRecalibrator"
 
-echo
-echo "[$(date)] BaseRecalibrator"
-
 BQSR_DIR="${OUTDIR}/bqsr_parts"
 BQSR_BAM_DIR="${OUTDIR}/recal_parts"
 
