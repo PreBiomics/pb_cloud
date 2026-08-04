@@ -117,12 +117,14 @@ $1=="total"{
 THRESHOLD=$(awk -v d="${MEAN_DEPTH}" 'BEGIN{printf "%.0f", d*0.2}')
 
 UNIFORMITY=$(
-awk -v t="${THRESHOLD}" '
-$1=="total" && $2>=t {
-    printf "%.2f", $3*100
-    exit
+awk -v t="$THRESHOLD" '
+$1=="total" {
+    if ($2 >= t)
+        val = $3 * 100
 }
-' "${MOSDEPTH_PREFIX}.mosdepth.global.dist.txt"
+END {
+    printf "%.2f\n", val
+}' "${MOSDEPTH_PREFIX}.mosdepth.global.dist.txt"
 )
 
 echo
