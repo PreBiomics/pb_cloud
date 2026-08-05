@@ -1,7 +1,8 @@
 #!/bin/bash
 set -euo pipefail
 
-export PATH=/output/pb_cloud/wgs:$PATH
+#export PATH=/output/pb_cloud/wgs:$PATH
+export PATH=/script/wgs:$PATH
 
 if [ "$#" -lt 3 ]; then
     echo "Usage:"
@@ -20,36 +21,46 @@ SHARDS=$((THREADS * 2))
 
 mkdir -p "${QC}"
 
-BAM="${OUTDIR}/${SAMPLE}.bam"
+FINAL_BAM="${OUTDIR}/${SAMPLE}.bam"
 SORTED_BAM="${OUTDIR}/${SAMPLE}.sorted.bam"
 RECAL_BAM="${OUTDIR}/${SAMPLE}.recal.bam"
 TMP_BAM="${OUTDIR}/${SAMPLE}.tmp.bam"
 
+R1_FASTP=/input/${SAMPLE}/${SAMPLE}_R1.fastp.fastq.gz
+R2_FASTP=/input/${SAMPLE}/${SAMPLE}_R2.fastp.fastq.gz
+FASTP_HTML="/input/${SAMPLE}/${SAMPLE}.html"
 FASTP_JSON="/input/${SAMPLE}/${SAMPLE}.json"
 FLAGSTAT="${QC}/${SAMPLE}.flagstat.txt"
 MOSDEPTH_PREFIX="${QC}/${SAMPLE}"
 REPORT="${OUTDIR}/${SAMPLE}.report.tsv"
 
+echo
+echo "[$(date)] Running FASTp..."
+
+fastp -i "${R1}" -o "${R1_FASTP}" -I "${R2}" -O "${R2_FASTP}" -z 4 -e 20 -l 75 -w 8 -q 20 \
+    --adapter_sequence CTGTCTCTTATACACATCT --adapter_sequence_r2 CTGTCTCTTATACACATCT 
+    --trim_poly_g --trim_poly_x -y -n 2 -h "${FASTP_HTML}" -j "${FASTP_JSON}"
+
+mv "${R1_FASTP}" "${R1}"
+mv "${R2_FASTP}" "${R2}"
+rm -f "${FASTP_HTML}"
+
+echo
 echo "[$(date)] Running BWA-MEM2..."
 
 bwa-mem2 mem \
-    -t ${THREADS} \
+    -t "${THREADS}" \
     -R "@RG\tID:${SAMPLE}\tSM:${SAMPLE}\tPL:ILLUMINA" \
     "${REFERENCE}" \
     "${R1}" \
-    "${R2}" | samtools view \
+    "${R2}" | \
+samtools view \
     -@ "${THREADS}" \
-    -b \
-    -o "${BAM}" -
-
-echo "[$(date)] Sorting BAM..."
-
+    -b - | \
 samtools sort \
-    -@ ${THREADS} \
+    -@ "${THREADS}" \
     -o "${SORTED_BAM}" \
-    "${BAM}"
-
-rm -f "${BAM}"
+    -
 
 echo "[$(date)] Indexing BAM..."
 
@@ -133,7 +144,9 @@ echo "[$(date)] Preparing intervals"
 SHARD_DIR="${OUTDIR}/${2}_shards"
 mkdir -p "${SHARD_DIR}"
 
-if [[ ! -f "${SHARD_DIR}/shard_31.list" ]]; then
+EXPECTED=$(printf "shard_%02d.list" $((SHARDS-1)))
+
+if [[ ! -f "${SHARD_DIR}/${EXPECTED}" ]]
     rm -f "${SHARD_DIR}"/*.list
     TOTAL=$(awk '
     {
@@ -259,7 +272,6 @@ gatk ApplyBQSR \
     -L "$LIST" \
     -O "'"${BQSR_BAM_DIR}"'/${NAME}.bam"
 
-samtools index "'"${BQSR_BAM_DIR}"'/${NAME}.bam"
 ' :::: "${JOBFILE}"
 
 rm -f "${SORTED_BAM}"
@@ -400,7 +412,7 @@ rm -f "${OUTDIR}/${SAMPLE}.INDEL.vcf.gz.tbi"
 rm -f "${OUTDIR}/${SAMPLE}.vcf.gz"
 rm -f "${OUTDIR}/${SAMPLE}.vcf.gz.tbi"
 rm -rf ${QC}
-mv ${RECAL_BAM} "${OUTDIR}/${SAMPLE}.bam"
+mv ${RECAL_BAM} ${FINAL_BAM}
 
 echo ""
 echo "Pipeline completed successfully."
