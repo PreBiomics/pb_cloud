@@ -37,13 +37,12 @@ REPORT="${OUTDIR}/${SAMPLE}.report.tsv"
 echo
 echo "[$(date)] Running FASTp..."
 
-fastp -i "${R1}" -o "${R1_FASTP}" -I "${R2}" -O "${R2_FASTP}" -z 4 -e 20 -l 75 -w 8 -q 20 \
+fastp -i "${R1}" -o "${R1_FASTP}" -I "${R2}" -O "${R2_FASTP}" -z 4 -e 20 -l 75 -w "${THREADS}" -q 20 \
     --adapter_sequence CTGTCTCTTATACACATCT --adapter_sequence_r2 CTGTCTCTTATACACATCT 
-    --trim_poly_g --trim_poly_x -y -n 2 -h "${FASTP_HTML}" -j "${FASTP_JSON}"
+    --trim_poly_g --trim_poly_x -y -n 2 -j "${FASTP_JSON}"
 
 mv "${R1_FASTP}" "${R1}"
 mv "${R2_FASTP}" "${R2}"
-rm -f "${FASTP_HTML}"
 
 echo
 echo "[$(date)] Running BWA-MEM2..."
