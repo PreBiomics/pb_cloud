@@ -146,7 +146,7 @@ mkdir -p "${SHARD_DIR}"
 
 EXPECTED=$(printf "shard_%02d.list" $((SHARDS-1)))
 
-if [[ ! -f "${SHARD_DIR}/${EXPECTED}" ]]
+if [[ ! -f "${SHARD_DIR}/${EXPECTED}" ]]; then
     rm -f "${SHARD_DIR}"/*.list
     TOTAL=$(awk '
     {
