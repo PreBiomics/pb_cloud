@@ -38,7 +38,7 @@ echo
 echo "[$(date)] Running FASTp..."
 
 fastp -i "${R1}" -o "${R1_FASTP}" -I "${R2}" -O "${R2_FASTP}" -z 4 -e 20 -l 75 -w "${THREADS}" -q 20 \
-    --adapter_sequence CTGTCTCTTATACACATCT --adapter_sequence_r2 CTGTCTCTTATACACATCT 
+    --adapter_sequence CTGTCTCTTATACACATCT --adapter_sequence_r2 CTGTCTCTTATACACATCT \
     --trim_poly_g --trim_poly_x -y -n 2 -j "${FASTP_JSON}"
 
 mv "${R1_FASTP}" "${R1}"
