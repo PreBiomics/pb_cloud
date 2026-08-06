@@ -1,8 +1,8 @@
 #!/bin/bash
 set -euo pipefail
 
-#export PATH=/output/pb_cloud/wgs:$PATH
-export PATH=/script/wgs:$PATH
+export PATH=/output/pb_cloud/wgs:$PATH
+# export PATH=/script/wgs:$PATH
 
 if [ "$#" -lt 3 ]; then
     echo "Usage:"
