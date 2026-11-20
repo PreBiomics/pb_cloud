@@ -16,7 +16,7 @@ preprocessing.py \
 	-f R1 \
 	-r R2 \
 	-n ${nproc} \
-	--rm_hsap
+	--rm_hsap \
 	-t ${nproc} \
 	${host} \
 	-d /databases/kraken2_databases \
