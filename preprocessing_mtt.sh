@@ -10,12 +10,13 @@ mapper=${4}
 qc=${5}
 
 preprocessing.py \
-	-m ${mapper} \
+	-m bowtie2 \
 	-i /input/${sample_name}/ \
 	-s ${sample_name} \
 	-f R1 \
 	-r R2 \
 	-n ${nproc} \
+	--rm_hsap
 	-t ${nproc} \
 	${host} \
 	-d /databases/kraken2_databases \
