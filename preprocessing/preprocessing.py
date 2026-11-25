@@ -1171,7 +1171,7 @@ def screen_contaminant_kraken_paired(x):
         host = (trimmed_reads - kraken_reads) / trimmed_reads
         print("\nPercentage of host reads: {:.2f}%".format(host*100))
 
-    if host < 0.75 and args.mapper!="stringet":
+    if args.mapper!="stringet":
         if not (os.path.isfile("{}.fastq.gz".format(os.path.join(input_dir, args.samplename + "_R1"))) or os.path.isfile("{}.fastq.gz".format(os.path.join(input_dir, args.samplename + "_R2")))):
             write_gz(os.path.join(input_dir, final), dry_run, verbose)
             os.rename("{}_krk2.fastq.gz".format(os.path.join(input_dir, outf.replace("#","1"))), "{}.fastq.gz".format(os.path.join(input_dir, args.samplename + "_R1")))
