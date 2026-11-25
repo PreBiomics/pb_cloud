@@ -10,7 +10,7 @@ mapper=${4}
 qc=${5}
 
 preprocessing.py \
-	-m bowtie2 \
+	-m kraken2 \
 	-i /input/${sample_name}/ \
 	-s ${sample_name} \
 	-f R1 \
