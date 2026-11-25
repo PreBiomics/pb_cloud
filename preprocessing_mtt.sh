@@ -10,7 +10,7 @@ mapper=${4}
 qc=${5}
 
 preprocessing.py \
-	-m kraken2 \
+	-m kraken \
 	-i /input/${sample_name}/ \
 	-s ${sample_name} \
 	-f R1 \
